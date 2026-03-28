@@ -1,0 +1,140 @@
+rules_version = '2';
+
+// ===============================================================
+// Assumed Data Model
+// ===============================================================
+//
+// Collection: users
+// Fields: uid, email, role, name
+//
+// Collection: clients
+// Fields: id, name, brand, contact, services, paymentTerms, totalBudget, createdAt
+//
+// Collection: projects
+// Fields: id, clientId, name, status, createdAt
+//
+// Collection: tasks
+// Fields: id, projectId, title, description, status, priority, assigneeId, deadline, createdAt
+//
+// Collection: payments
+// Fields: id, clientId, totalAmount, paidAmount, dueDate, status, createdAt
+//
+// Collection: notifications
+// Fields: id, userId, message, type, read, createdAt
+//
+// Collection: meetings
+// Fields: id, clientId, title, date, time, createdAt
+//
+// ===============================================================
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() && 
+        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
+         (request.auth.token.email in ["reelywood@gmail.com", "rohan00as@gmail.com"] && request.auth.token.email_verified == true));
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isValidUser(data, userId) {
+      return data.keys().hasAll(['email', 'role', 'name']) &&
+             data.email is string &&
+             data.role in ['admin', 'team_member', 'account_manager'];
+    }
+
+    function isValidClient(data) {
+      return data.name is string && data.name.size() > 0 && data.name.size() < 100 &&
+             (!('brand' in data) || (data.brand is string && data.brand.size() < 100)) &&
+             (!('totalBudget' in data) || (data.totalBudget is number || data.totalBudget is string));
+    }
+
+    function isValidProject(data) {
+      return data.clientId is string && data.name is string && data.name.size() > 0;
+    }
+
+    function isValidTask(data) {
+      return data.title is string && data.title.size() > 0;
+    }
+
+    function isValidPayment(data) {
+      return data.clientId is string && data.totalAmount is number && data.totalAmount >= 0;
+    }
+
+    function isValidNotification(data) {
+      return data.userId is string && data.message is string && data.message.size() > 0;
+    }
+
+    function isValidMeeting(data) {
+      return data.clientId is string && data.title is string && data.title.size() > 0 && data.date is string;
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    match /users/{userId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && (isOwner(userId) || isAdmin());
+      allow update: if isAuthenticated() && (isOwner(userId) || isAdmin());
+      allow delete: if isAdmin();
+    }
+
+    match /clients/{clientId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && isValidClient(request.resource.data);
+      allow update: if isAuthenticated() && isValidClient(request.resource.data);
+      allow delete: if isAdmin();
+    }
+
+    match /projects/{projectId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && isValidProject(request.resource.data);
+      allow update: if isAuthenticated() && isValidProject(request.resource.data);
+      allow delete: if isAdmin();
+    }
+
+    match /tasks/{taskId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && isValidTask(request.resource.data);
+      allow update: if isAuthenticated() && isValidTask(request.resource.data);
+      allow delete: if isAuthenticated();
+    }
+
+    match /payments/{paymentId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && isValidPayment(request.resource.data);
+      allow update: if isAuthenticated() && isValidPayment(request.resource.data);
+      allow delete: if isAdmin();
+    }
+
+    match /notifications/{notificationId} {
+      allow read: if isAuthenticated() && (isOwner(resource.data.userId) || isAdmin());
+      allow create: if isAuthenticated() && isValidNotification(request.resource.data);
+      allow update: if isAuthenticated() && (isOwner(resource.data.userId) || isAdmin()) && isValidNotification(request.resource.data);
+      allow delete: if isAuthenticated() && (isOwner(resource.data.userId) || isAdmin());
+    }
+
+    match /meetings/{meetingId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && isValidMeeting(request.resource.data);
+      allow update: if isAuthenticated() && isValidMeeting(request.resource.data);
+      allow delete: if isAdmin();
+    }
+    
+    match /test/connection {
+      allow read: if true;
+    }
+  }
+}

@@ -1,0 +1,113 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "A user of the system (Admin, Team Member, Account Manager).",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "role": { "type": "string", "enum": ["admin", "team_member", "account_manager"] },
+        "name": { "type": "string" }
+      },
+      "required": ["uid", "email", "role"]
+    },
+    "Client": {
+      "title": "Client",
+      "description": "A brand or individual client of the agency.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "brand": { "type": "string" },
+        "contact": { "type": "string" },
+        "services": { "type": "array", "items": { "type": "string" } },
+        "paymentTerms": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "brand"]
+    },
+    "Project": {
+      "title": "Project",
+      "description": "A specific project linked to a client.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "clientId": { "type": "string" },
+        "name": { "type": "string" },
+        "status": { "type": "string", "enum": ["active", "completed", "on_hold"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["clientId", "name"]
+    },
+    "Task": {
+      "title": "Task",
+      "description": "A specific task within a project.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "projectId": { "type": "string" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "status": { "type": "string", "enum": ["todo", "in_progress", "completed"] },
+        "priority": { "type": "string", "enum": ["low", "medium", "high"] },
+        "assigneeId": { "type": "string" },
+        "deadline": { "type": "string", "format": "date-time" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["projectId", "title"]
+    },
+    "Payment": {
+      "title": "Payment",
+      "description": "Financial record for a client.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "clientId": { "type": "string" },
+        "totalAmount": { "type": "number" },
+        "paidAmount": { "type": "number" },
+        "dueDate": { "type": "string", "format": "date-time" },
+        "status": { "type": "string", "enum": ["pending", "partial", "paid", "overdue"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["clientId", "totalAmount"]
+    },
+    "Notification": {
+      "title": "Notification",
+      "description": "System notification for a user.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "message": { "type": "string" },
+        "type": { "type": "string" },
+        "read": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "message"]
+    },
+    "Meeting": {
+      "title": "Meeting",
+      "description": "A scheduled meeting with a client.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "clientId": { "type": "string" },
+        "title": { "type": "string" },
+        "date": { "type": "string", "format": "date" },
+        "time": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["clientId", "title", "date"]
+    }
+  },
+  "firestore": {
+    "/users/{uid}": { "schema": "User", "description": "User profiles" },
+    "/clients/{clientId}": { "schema": "Client", "description": "Client records" },
+    "/projects/{projectId}": { "schema": "Project", "description": "Project records" },
+    "/tasks/{taskId}": { "schema": "Task", "description": "Task records" },
+    "/payments/{paymentId}": { "schema": "Payment", "description": "Payment records" },
+    "/notifications/{notificationId}": { "schema": "Notification", "description": "User notifications" },
+    "/meetings/{meetingId}": { "schema": "Meeting", "description": "Scheduled meetings" }
+  }
+}
