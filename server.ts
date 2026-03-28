@@ -24,23 +24,24 @@ async function startServer() {
       appType: "spa",
     });
     app.use(vite.middlewares);
-    
-    app.listen(PORT, "0.0.0.0", () => {
-      console.log(`Server running on http://localhost:${PORT}`);
-    });
   } else {
     // In production (Vercel), static files are handled by vercel.json rewrites
-    // But we still serve them here as a fallback for other environments
+    // But we still serve them here as a fallback for other environments like Cloud Run
     const distPath = path.join(process.cwd(), 'dist');
     app.use(express.static(distPath));
     app.get('*', (req, res) => {
       res.sendFile(path.join(distPath, 'index.html'));
     });
   }
+
+  // Only listen if NOT on Vercel (Vercel handles listening)
+  if (!process.env.VERCEL) {
+    app.listen(PORT, "0.0.0.0", () => {
+      console.log(`Server running on http://localhost:${PORT}`);
+    });
+  }
 }
 
-if (process.env.NODE_ENV !== "production") {
-  startServer();
-}
+startServer();
 
 export default app;
