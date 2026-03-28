@@ -5,19 +5,48 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>My Google AI Studio App</title>
     <script>
-      // Fix for Firebase SDK trying to overwrite window.fetch in restricted environments (iframes)
+      // Aggressive fix for Firebase SDK trying to overwrite window.fetch in restricted environments (iframes)
       (function() {
+        console.log('WOODY: Applying window.fetch protection...');
         try {
           if (typeof window !== 'undefined' && window.fetch) {
             const originalFetch = window.fetch;
-            Object.defineProperty(window, 'fetch', {
-              value: originalFetch,
-              writable: false,
-              configurable: true
-            });
+            
+            // Try to define it on the window object directly
+            try {
+              Object.defineProperty(window, 'fetch', {
+                get: function() { return originalFetch; },
+                set: function() { 
+                  console.warn('WOODY: Blocked attempt to overwrite window.fetch');
+                },
+                configurable: true,
+                enumerable: true
+              });
+              console.log('WOODY: window.fetch protected successfully.');
+            } catch (e) {
+              console.warn('WOODY: Could not define fetch on window, trying prototype...', e);
+              
+              // Fallback: try to define it on the prototype if window is locked
+              try {
+                const proto = Object.getPrototypeOf(window);
+                if (proto) {
+                  Object.defineProperty(proto, 'fetch', {
+                    get: function() { return originalFetch; },
+                    set: function() { 
+                      console.warn('WOODY: Blocked attempt to overwrite window.fetch (prototype)');
+                    },
+                    configurable: true,
+                    enumerable: true
+                  });
+                  console.log('WOODY: window.fetch protected on prototype.');
+                }
+              } catch (e2) {
+                console.error('WOODY: Failed to protect window.fetch:', e2);
+              }
+            }
           }
         } catch (e) {
-          console.warn('Could not lock window.fetch:', e);
+          console.error('WOODY: Critical error in fetch protection:', e);
         }
       })();
     </script>

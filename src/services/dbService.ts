@@ -64,9 +64,13 @@ function handleFirestoreError(error: unknown, operationType: OperationType, path
 export async function testConnection() {
   try {
     await getDocFromServer(doc(db, 'test', 'connection'));
+    console.log("WOODY: Firestore connection successful.");
   } catch (error) {
     if(error instanceof Error && error.message.includes('the client is offline')) {
-      console.error("Firebase Connection Error: The client is offline. This usually means Firestore is not enabled in your Firebase Console or the configuration is incorrect.");
+      console.error("WOODY: Firebase Connection Error: The client is offline.");
+      console.warn("MANDATORY ACTION: Please go to the Firebase Console (https://console.firebase.google.com/), select your project (woody-93acf), and ensure 'Firestore Database' is ENABLED in 'Test Mode'.");
+    } else {
+      console.error("WOODY: Firestore connection failed:", error);
     }
   }
 }
