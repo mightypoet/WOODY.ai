@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { User, UserRole } from '../types';
 import { dbService } from '../services/dbService';
+import { notificationService } from '../services/notificationService';
 import { Users, Plus, Mail, Shield, Trash2, Loader2, UserPlus } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import Modal from './Modal';
@@ -35,6 +36,13 @@ export default function TeamManagement({ user }: { user: User }) {
       role: newMember.role,
       createdAt: new Date().toISOString()
     });
+
+    // Send welcome email
+    await notificationService.sendEmail(
+      newMember.email,
+      'Welcome to Woody AI!',
+      `Hi ${newMember.name}, you've been added to the team as a ${newMember.role.replace('_', ' ')}. You can now log in using your email.`
+    );
 
     setNewMember({ name: '', email: '', role: 'team_member' });
     setIsModalOpen(false);

@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { User, Project, Task } from '../types';
 import { dbService } from '../services/dbService';
-import { Briefcase, Plus, Search, Filter, MoreHorizontal, Clock, CheckCircle2, AlertCircle, Trash2 } from 'lucide-react';
+import { notificationService } from '../services/notificationService';
+import { Briefcase, Plus, Search, Filter, MoreHorizontal, Clock, CheckCircle2, AlertCircle, Trash2, User as UserIcon } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { safeFormat } from '../lib/dateUtils';
 import Modal from './Modal';
@@ -14,8 +15,9 @@ export default function ProjectBoard({ user }: { user: User }) {
   const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
   const [newProject, setNewProject] = useState({ name: '', clientId: '' });
-  const [newTask, setNewTask] = useState({ title: '', description: '', priority: 'medium' as any, deadline: '', status: 'todo' as any });
+  const [newTask, setNewTask] = useState({ title: '', description: '', priority: 'medium' as any, deadline: '', status: 'todo' as any, assigneeId: '' });
   const [clients, setClients] = useState<any[]>([]);
+  const [members, setMembers] = useState<User[]>([]);
 
   useEffect(() => {
     const unsubProjects = dbService.subscribe('projects', (data) => {
@@ -27,11 +29,13 @@ export default function ProjectBoard({ user }: { user: User }) {
     });
     const unsubTasks = dbService.subscribe('tasks', (data) => setTasks(data));
     const unsubClients = dbService.subscribe('clients', (data) => setClients(data));
+    const unsubMembers = dbService.subscribe('users', (data) => setMembers(data));
 
     return () => {
       unsubProjects();
       unsubTasks();
       unsubClients();
+      unsubMembers();
     };
   }, []);
 
@@ -58,14 +62,28 @@ export default function ProjectBoard({ user }: { user: User }) {
   const handleCreateTask = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newTask.title || !selectedProjectId) return;
+    
+    const assigneeId = newTask.assigneeId || user.uid;
+    
     await dbService.create('tasks', { 
       ...newTask, 
       projectId: selectedProjectId, 
-      assigneeId: user.uid,
+      assigneeId: assigneeId,
       createdAt: new Date().toISOString() 
     });
+
+    // Notify assignee if it's someone else
+    if (assigneeId !== user.uid) {
+      const project = projects.find(p => p.id === selectedProjectId);
+      await notificationService.sendNotification(
+        assigneeId,
+        `You have been assigned a new task: "${newTask.title}" in project "${project?.name || 'Unknown'}"`,
+        'task'
+      );
+    }
+
     setIsTaskModalOpen(false);
-    setNewTask({ title: '', description: '', priority: 'medium', deadline: '', status: 'todo' });
+    setNewTask({ title: '', description: '', priority: 'medium', deadline: '', status: 'todo', assigneeId: '' });
   };
 
   const handleDeleteTask = async (id: string, e: React.MouseEvent) => {
@@ -261,6 +279,19 @@ export default function ProjectBoard({ user }: { user: User }) {
                 className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-zinc-500 transition-all"
               />
             </div>
+          </div>
+          <div className="space-y-1">
+            <label className="text-xs text-zinc-500 uppercase font-mono tracking-widest">Assignee</label>
+            <select
+              value={newTask.assigneeId}
+              onChange={(e) => setNewTask({ ...newTask, assigneeId: e.target.value })}
+              className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-zinc-500 transition-all"
+            >
+              <option value="">Myself</option>
+              {members.filter(m => m.uid !== user.uid).map(m => (
+                <option key={m.uid || m.email} value={m.uid || m.email}>{m.name}</option>
+              ))}
+            </select>
           </div>
           <button type="submit" className="w-full py-3 bg-white text-black font-semibold rounded-xl hover:bg-zinc-200 transition-colors mt-4">
             Add Task

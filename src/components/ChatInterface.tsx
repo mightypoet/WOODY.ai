@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { User, AIAction } from '../types';
 import { getAIResponse, extractActions } from '../services/aiService';
 import { dbService } from '../services/dbService';
+import { notificationService } from '../services/notificationService';
 import { Send, Loader2, Bot, User as UserIcon, CheckCircle2, AlertCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { clsx, type ClassValue } from 'clsx';
@@ -241,7 +242,15 @@ export default function ChatInterface({ user }: { user: User }) {
               role: action.payload.role || 'team_member',
               createdAt: now
             });
-            results.push(`Added team member: ${action.payload.name} (${action.payload.email})`);
+            
+            // Send welcome email
+            await notificationService.sendEmail(
+              action.payload.email,
+              'Welcome to Reelywood!',
+              `Hi ${action.payload.name},\n\nYou have been added to the Reelywood team as a ${action.payload.role || 'team_member'}. Log in to start managing tasks!`
+            );
+            
+            results.push(`Added team member: ${action.payload.name} (${action.payload.email}) and sent welcome email.`);
             break;
           }
 
@@ -254,7 +263,7 @@ export default function ChatInterface({ user }: { user: User }) {
               break;
             }
 
-            await dbService.create('tasks', {
+            const taskId = await dbService.create('tasks', {
               title: action.payload.task_name,
               assigneeId: targetUser.uid || targetUser.id,
               deadline: action.payload.deadline || '',
@@ -262,19 +271,36 @@ export default function ChatInterface({ user }: { user: User }) {
               priority: 'medium',
               createdAt: now
             });
-            results.push(`Assigned "${action.payload.task_name}" to ${targetUser.name}`);
+
+            // Send notification
+            await notificationService.sendNotification(
+              targetUser.uid || targetUser.id,
+              `New task assigned: ${action.payload.task_name}`,
+              'task_assignment'
+            );
+
+            results.push(`Assigned "${action.payload.task_name}" to ${targetUser.name} and sent notification.`);
             break;
           }
 
           case 'SEND_NOTIFICATION': {
-            await dbService.create('notifications', {
-              userId: action.payload.to, // Using email as a proxy for ID if needed
-              message: `[${action.payload.channel}] ${action.payload.subject}: ${action.payload.message}`,
-              type: 'email_simulation',
-              read: false,
-              createdAt: now
-            });
-            results.push(`Sent ${action.payload.channel} notification to ${action.payload.to}`);
+            if (action.payload.channel === 'EMAIL') {
+              await notificationService.sendEmail(
+                action.payload.to,
+                action.payload.subject || 'Notification from WOODY',
+                action.payload.message
+              );
+              results.push(`Sent email notification to ${action.payload.to}`);
+            } else {
+              await dbService.create('notifications', {
+                userId: action.payload.to, 
+                message: `[${action.payload.channel}] ${action.payload.subject}: ${action.payload.message}`,
+                type: 'notification',
+                read: false,
+                createdAt: now
+              });
+              results.push(`Logged ${action.payload.channel} notification for ${action.payload.to}`);
+            }
             break;
           }
 
