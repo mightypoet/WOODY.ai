@@ -15,8 +15,21 @@ export default function Dashboard({ user }: { user: User }) {
   });
   const [recentTasks, setRecentTasks] = useState<Task[]>([]);
   const [recentPayments, setRecentPayments] = useState<Payment[]>([]);
+  const [emailServiceStatus, setEmailServiceStatus] = useState<'loading' | 'configured' | 'missing'>('loading');
 
   useEffect(() => {
+    const checkEmailStatus = async () => {
+      try {
+        const response = await fetch('/api/health');
+        const data = await response.json();
+        setEmailServiceStatus(data.emailServiceConfigured ? 'configured' : 'missing');
+      } catch (error) {
+        console.error("Failed to check email status:", error);
+        setEmailServiceStatus('missing');
+      }
+    };
+    checkEmailStatus();
+
     const unsubClients = dbService.subscribe('clients', (data) => setStats(prev => ({ ...prev, clients: data.length })));
     const unsubProjects = dbService.subscribe('projects', (data) => setStats(prev => ({ ...prev, projects: data.length })));
     const unsubTasks = dbService.subscribe('tasks', (data) => {
@@ -47,9 +60,56 @@ export default function Dashboard({ user }: { user: User }) {
 
   return (
     <div className="h-full overflow-y-auto p-8 space-y-8">
-      <header className="space-y-1">
-        <h2 className="text-3xl font-bold tracking-tight">Dashboard</h2>
-        <p className="text-zinc-500 text-sm">Welcome back, {user.name}. Here's what's happening at Reelywood.</p>
+      <header className="flex items-start justify-between">
+        <div className="space-y-1">
+          <h2 className="text-3xl font-bold tracking-tight">Dashboard</h2>
+          <p className="text-zinc-500 text-sm">Welcome back, {user.name}. Here's what's happening at Reelywood.</p>
+        </div>
+        <div className="flex items-center gap-3">
+          <button 
+            onClick={async () => {
+              try {
+                const response = await fetch('/api/send-email', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    to: user.email,
+                    subject: 'Test Email from WOODY',
+                    html: '<p>This is a test email to verify your Resend configuration.</p>'
+                  })
+                });
+                const data = await response.json();
+                if (response.ok) {
+                  alert('Test email sent successfully! Check your inbox.');
+                } else {
+                  alert(`Failed to send test email: ${data.error}`);
+                }
+              } catch (error) {
+                alert('Error sending test email. Check console for details.');
+                console.error(error);
+              }
+            }}
+            className="px-3 py-1.5 rounded-xl bg-zinc-800 border border-zinc-700 text-[10px] font-bold uppercase tracking-widest hover:bg-zinc-700 transition-colors"
+          >
+            Test Email
+          </button>
+          <div className={cn(
+            "px-3 py-1.5 rounded-full border text-[10px] font-bold uppercase tracking-widest flex items-center gap-2",
+            emailServiceStatus === 'configured' ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-500" :
+            emailServiceStatus === 'loading' ? "bg-zinc-800 border-zinc-700 text-zinc-500" :
+            "bg-red-500/10 border-red-500/20 text-red-500"
+          )}>
+            <div className={cn(
+              "w-1.5 h-1.5 rounded-full",
+              emailServiceStatus === 'configured' ? "bg-emerald-500 animate-pulse" :
+              emailServiceStatus === 'loading' ? "bg-zinc-500" :
+              "bg-red-500"
+            )} />
+            {emailServiceStatus === 'configured' ? 'Email Service Active' : 
+             emailServiceStatus === 'loading' ? 'Checking Service...' : 
+             'Email Service Not Configured'}
+          </div>
+        </div>
       </header>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">

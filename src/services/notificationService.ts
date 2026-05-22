@@ -47,6 +47,13 @@ export const notificationService = {
       if (!response.ok) {
         const errorData = await response.json();
         console.error('Failed to send email:', errorData.error);
+        
+        // Provide more context to the user via console
+        if (errorData.error.includes('RESEND_API_KEY missing')) {
+          console.warn('ACTION REQUIRED: Please add your RESEND_API_KEY in the Settings menu.');
+        } else if (errorData.error.includes('onboarding@resend.dev')) {
+          console.warn('NOTE: Using Resend onboarding domain. You can only send emails to the address you signed up with.');
+        }
       }
     } catch (error) {
       console.error('Error calling send-email API:', error);

@@ -23,7 +23,11 @@ app.use(express.json());
 
 // API routes
 app.get("/api/health", (req, res) => {
-  res.json({ status: "ok", message: "WOODY API is running" });
+  res.json({ 
+    status: "ok", 
+    message: "WOODY API is running",
+    emailServiceConfigured: !!process.env.RESEND_API_KEY 
+  });
 });
 
 app.post("/api/send-email", async (req, res) => {
@@ -36,11 +40,17 @@ app.post("/api/send-email", async (req, res) => {
 
   try {
     const data = await resendClient.emails.send({
-      from: 'Woody AI <notifications@resend.dev>', // Default Resend domain for testing
+      from: 'Woody AI <onboarding@resend.dev>', // Standard Resend domain for testing
       to,
       subject,
       html,
     });
+    
+    if (data.error) {
+      console.error("Resend API Error:", data.error);
+      return res.status(400).json({ error: data.error.message });
+    }
+
     res.json({ success: true, data });
   } catch (error) {
     console.error("Error sending email:", error);

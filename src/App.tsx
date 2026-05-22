@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { auth, db } from './firebase';
-import { onAuthStateChanged, signInWithPopup, GoogleAuthProvider, signOut } from 'firebase/auth';
+import { db } from './firebase';
 import { dbService, testConnection } from './services/dbService';
+import { googleSignIn, initAuth, logout as googleLogout } from './services/googleAuth';
 import { User, UserRole } from './types';
 import { Layout, MessageSquare, LayoutDashboard, Users, Briefcase, CreditCard, LogOut, Loader2, Send, Building2, AlertCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
@@ -16,60 +16,95 @@ import TeamManagement from './components/TeamManagement';
 export default function App() {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [authError, setAuthError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'chat' | 'dashboard' | 'clients' | 'projects' | 'payments' | 'team'>('chat');
 
   useEffect(() => {
-    console.log("WOODY: App initialized, checking auth...");
+    console.log("WOODY: App initialized, checking Google Auth.");
     testConnection();
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      try {
-        if (firebaseUser) {
-          console.log("WOODY: User authenticated:", firebaseUser.email);
-          // Check if user exists in Firestore
-          let userData = await dbService.get('users', firebaseUser.uid) as any;
-          if (!userData) {
-            console.log("WOODY: User not found in Firestore, creating...");
-            // Create new user
-            const role: UserRole = (firebaseUser.email === 'reelywood@gmail.com' || firebaseUser.email === 'rohan00as@gmail.com') ? 'admin' : 'team_member';
-            userData = {
-              uid: firebaseUser.uid,
-              email: firebaseUser.email || '',
-              name: firebaseUser.displayName || 'User',
-              role: role,
-              createdAt: new Date().toISOString()
-            };
-            await dbService.set('users', firebaseUser.uid, userData);
-          }
-          setUser(userData as User);
-        } else {
-          console.log("WOODY: No user authenticated.");
-          setUser(null);
+    
+    // Subscribe to auth state changes for Workspace integration
+    const unsubscribe = initAuth(
+      async (fUser, fToken) => {
+        let userData;
+        try {
+          userData = await dbService.get('users', fUser.uid) as any;
+        } catch (err: any) {
+          console.warn("Firestore fetch error:", err);
         }
-      } catch (error) {
-        console.error("WOODY: Error in auth state change:", error);
-        // We still want to stop loading even if there's an error
-      } finally {
+        
+        if (!userData) {
+          userData = {
+            uid: fUser.uid,
+            email: fUser.email || '',
+            name: fUser.displayName || 'Unknown User',
+            role: 'admin',
+            createdAt: new Date().toISOString()
+          };
+          try {
+            await dbService.set('users', fUser.uid, userData);
+          } catch(e) {
+            console.warn("Could not save to DB, using local default.");
+          }
+        }
+        setUser(userData as User);
+        setLoading(false);
+      },
+      () => {
+        setUser(null);
         setLoading(false);
       }
-    });
-    return () => unsubscribe();
+    );
+    
+    return () => {
+      // Unsubscribe wrapper
+      unsubscribe.then(unsub => unsub && unsub());
+    }
   }, []);
 
   const handleLogin = async () => {
-    const provider = new GoogleAuthProvider();
+    setLoading(true);
+    setAuthError(null);
     try {
-      await signInWithPopup(auth, provider);
-    } catch (error: any) {
-      if (error.code === 'auth/popup-closed-by-user') {
-        console.log("Login popup was closed by the user.");
-      } else {
-        console.error("Login failed:", error);
+      const result = await googleSignIn();
+      if (result) {
+        let userData;
+        try {
+          userData = await dbService.get('users', result.user.uid) as any;
+        } catch (err: any) {
+          console.warn("Firestore fetch error:", err);
+        }
+        
+        if (!userData) {
+          userData = {
+            uid: result.user.uid,
+            email: result.user.email || '',
+            name: result.user.displayName || 'User',
+            role: 'admin',
+            createdAt: new Date().toISOString()
+          };
+          try {
+            await dbService.set('users', result.user.uid, userData);
+          } catch(e) {}
+        }
+        setUser(userData as User);
       }
+    } catch(e: any) {
+      console.error(e);
+      if (e.code === 'auth/unauthorized-domain') {
+        const domain = window.location.hostname;
+        setAuthError(`Google Sign-In failed because this domain (${domain}) is not authorized in your Firebase Project. Please go to Firebase Console -> Authentication -> Settings -> Authorized Domains and add: ${domain}`);
+      } else {
+        setAuthError("Failed to login to Woody OS with Google Workspace. Please ensure popups are allowed.");
+      }
+    } finally {
+      setLoading(false);
     }
   };
 
   const handleLogout = async () => {
-    await signOut(auth);
+    await googleLogout();
+    setUser(null);
   };
 
   if (loading) {
@@ -83,16 +118,27 @@ export default function App() {
 
   if (!user) {
     return (
-      <div className="h-screen w-screen flex flex-col items-center justify-center bg-[#0a0a0a] text-white p-4">
+      <div className="h-screen w-screen flex flex-col items-center justify-center bg-[#0a0a0a] text-white p-4 relative overflow-hidden">
+        
         <motion.div 
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="text-center space-y-8 max-w-md"
+          className="text-center space-y-8 max-w-md relative z-10"
         >
           <div className="space-y-2">
             <h1 className="text-6xl font-bold tracking-tighter">WOODY</h1>
             <p className="text-zinc-500 text-lg">The AI Operating System for Reelywood.</p>
           </div>
+          
+          {authError && (
+            <div className="bg-red-500/10 border border-red-500/20 text-red-400 p-4 rounded-xl text-sm text-left">
+              <div className="flex items-start gap-2">
+                <AlertCircle size={16} className="mt-0.5 shrink-0" />
+                <p>{authError}</p>
+              </div>
+            </div>
+          )}
+
           <button 
             onClick={handleLogin}
             className="w-full py-4 bg-white text-black font-semibold rounded-xl hover:bg-zinc-200 transition-colors flex items-center justify-center gap-2"
@@ -116,12 +162,24 @@ export default function App() {
 
   return (
     <ErrorBoundary>
-      <div className="h-screen w-screen flex bg-[#0a0a0a] text-white overflow-hidden">
+      <div className="h-screen w-screen flex bg-zinc-950 text-white overflow-hidden relative selection:bg-blue-500/30">
+        
+        {/* DeepMind-style subtle ambient background layers */}
+        <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none">
+          <div className="absolute -top-[20%] -left-[10%] w-[50%] h-[50%] rounded-full bg-blue-600/10 blur-[120px]" />
+          <div className="absolute top-[20%] -right-[10%] w-[40%] h-[60%] rounded-full bg-purple-600/10 blur-[120px]" />
+        </div>
+
         {/* Sidebar */}
-        <aside className="w-64 border-r border-zinc-800 flex flex-col p-4">
-          <div className="mb-8 px-2">
-            <h1 className="text-2xl font-bold tracking-tighter">WOODY</h1>
-            <p className="text-[10px] text-zinc-500 uppercase tracking-widest font-mono">Reelywood OS</p>
+        <aside className="w-64 border-r border-white/5 bg-zinc-950/50 backdrop-blur-3xl flex flex-col p-4 relative z-10">
+          <div className="mb-10 px-2 mt-4 flex items-center gap-3">
+            <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-blue-600 to-purple-600 flex items-center justify-center shadow-[0_0_15px_rgba(59,130,246,0.5)]">
+              <span className="font-bold text-white tracking-tighter">W</span>
+            </div>
+            <div>
+              <h1 className="text-xl font-bold tracking-tight">WOODY</h1>
+              <p className="text-[10px] text-zinc-400 uppercase tracking-widest font-mono">Reelywood Alpha</p>
+            </div>
           </div>
 
           <nav className="flex-1 space-y-1">
@@ -129,47 +187,51 @@ export default function App() {
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id as any)}
-                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all ${
+                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-300 relative group ${
                   activeTab === tab.id 
-                    ? 'bg-zinc-800 text-white' 
-                    : 'text-zinc-500 hover:text-zinc-300 hover:bg-zinc-900'
+                    ? 'text-white bg-white/5 shadow-inner border border-white/10' 
+                    : 'text-zinc-400 hover:text-zinc-200 hover:bg-white/5'
                 }`}
               >
-                <tab.icon size={18} />
-                <span className="text-sm font-medium">{tab.label}</span>
+                {activeTab === tab.id && (
+                  <motion.div 
+                    layoutId="activeTabIndicator"
+                    className="absolute inset-0 rounded-xl bg-gradient-to-r from-blue-500/10 to-transparent border border-blue-500/20"
+                  />
+                )}
+                <tab.icon size={18} className={`relative z-10 ${activeTab === tab.id ? 'text-blue-400' : 'group-hover:text-blue-400 transition-colors'}`} />
+                <span className="text-sm font-medium relative z-10">{tab.label}</span>
               </button>
             ))}
           </nav>
 
-          <div className="pt-4 border-t border-zinc-800 space-y-4">
-            <div className="flex items-center gap-3 px-3">
-              <div className="w-8 h-8 rounded-full bg-zinc-700 flex items-center justify-center text-xs font-bold">
-                {user.name[0]}
-              </div>
+          <div className="pt-4 border-t border-white/5 space-y-4">
+            <div className="flex items-center gap-3 px-3 py-2 rounded-xl bg-white/5 border border-white/5">
+              <img src={`https://ui-avatars.com/api/?name=${user.name}&background=random`} alt={user.name} className="w-8 h-8 rounded-full object-cover shadow-[0_0_10px_rgba(255,255,255,0.1)]" />
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium truncate">{user.name}</p>
-                <p className="text-[10px] text-zinc-500 uppercase">{user.role.replace('_', ' ')}</p>
+                <p className="text-[10px] text-blue-400 uppercase font-mono">{user.role.replace('_', ' ')}</p>
               </div>
             </div>
             <button 
               onClick={handleLogout}
-              className="w-full flex items-center gap-3 px-3 py-2 text-zinc-500 hover:text-red-400 transition-colors"
+              className="w-full flex items-center gap-3 px-3 py-2.5 text-zinc-400 hover:text-rose-400 hover:bg-rose-500/10 rounded-xl transition-all"
             >
               <LogOut size={18} />
-              <span className="text-sm font-medium">Logout</span>
+              <span className="text-sm font-medium">Log out</span>
             </button>
           </div>
         </aside>
 
         {/* Main Content */}
-        <main className="flex-1 relative overflow-hidden">
+        <main className="flex-1 relative z-10 overflow-hidden bg-zinc-950/80 backdrop-blur-xl rounded-tl-3xl border-t border-l border-white/5 shadow-2xl">
           <AnimatePresence mode="wait">
             <motion.div
               key={activeTab}
-              initial={{ opacity: 0, x: 10 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -10 }}
-              transition={{ duration: 0.2 }}
+              initial={{ opacity: 0, scale: 0.98, filter: 'blur(4px)' }}
+              animate={{ opacity: 1, scale: 1, filter: 'blur(0px)' }}
+              exit={{ opacity: 0, scale: 1.02, filter: 'blur(4px)' }}
+              transition={{ duration: 0.3, ease: 'easeOut' }}
               className="h-full w-full"
             >
               {activeTab === 'chat' && <ChatInterface user={user} />}

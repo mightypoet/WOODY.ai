@@ -3,6 +3,7 @@ import { User, AIAction } from '../types';
 import { getAIResponse, extractActions } from '../services/aiService';
 import { dbService } from '../services/dbService';
 import { notificationService } from '../services/notificationService';
+import { calendarService, gmailService, meetService, tasksService, docsService, sheetsService } from '../services/workspaceService';
 import { Send, Loader2, Bot, User as UserIcon, CheckCircle2, AlertCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { clsx, type ClassValue } from 'clsx';
@@ -321,6 +322,52 @@ export default function ChatInterface({ user }: { user: User }) {
             }
             break;
           }
+
+          case 'CREATE_CALENDAR_EVENT': {
+            const res = await calendarService.createEvent(
+              action.payload.summary,
+              action.payload.description || '',
+              action.payload.startIso,
+              action.payload.endIso
+            );
+            results.push(`Created Google Calendar event: ${action.payload.summary} (Link: ${res.htmlLink})`);
+            break;
+          }
+
+          case 'SEND_GMAIL': {
+            const confirmed = window.confirm(`Send email via Gmail to ${action.payload.to} with subject "${action.payload.subject}"?`);
+            if (!confirmed) {
+              results.push(`Cancelled email to ${action.payload.to}`);
+              break;
+            }
+            await gmailService.sendEmail(action.payload.to, action.payload.subject, action.payload.body);
+            results.push(`Sent email to ${action.payload.to}`);
+            break;
+          }
+
+          case 'CREATE_GOOGLE_MEET_SPACE': {
+            const res = await meetService.createMeetingSpace();
+            results.push(`Created Google Meet space: ${res.meetingUri}`);
+            break;
+          }
+
+          case 'CREATE_GOOGLE_TASK': {
+            const res = await tasksService.createTask(action.payload.title, action.payload.notes);
+            results.push(`Created Google Task: ${action.payload.title}`);
+            break;
+          }
+
+          case 'CREATE_GOOGLE_DOC': {
+            const res = await docsService.createDocument(action.payload.title);
+            results.push(`Created Google Doc: ${action.payload.title} (https://docs.google.com/document/d/${res.documentId}/edit)`);
+            break;
+          }
+
+          case 'CREATE_GOOGLE_SHEET': {
+            const res = await sheetsService.createSpreadsheet(action.payload.title);
+            results.push(`Created Google Sheet: ${action.payload.title} (https://docs.google.com/spreadsheets/d/${res.spreadsheetId}/edit)`);
+            break;
+          }
         }
       } catch (e) {
         console.error("Action execution failed:", e);
@@ -386,55 +433,58 @@ export default function ChatInterface({ user }: { user: User }) {
   };
 
   return (
-    <div className="h-full flex flex-col max-w-4xl mx-auto px-4">
-      <div className="flex-1 overflow-y-auto py-8 space-y-8 scroll-smooth" ref={scrollRef}>
+    <div className="h-full flex flex-col max-w-5xl mx-auto px-4 relative">
+      
+      <div className="flex-1 overflow-y-auto py-8 pb-32 space-y-8 scroll-smooth" ref={scrollRef}>
         <AnimatePresence initial={false}>
           {messages.map((message) => (
             <motion.div
               key={message.id}
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
+              initial={{ opacity: 0, y: 10, scale: 0.98 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
               className={cn(
                 "flex gap-4",
                 message.role === 'user' ? "flex-row-reverse" : "flex-row"
               )}
             >
               <div className={cn(
-                "w-8 h-8 rounded-full flex items-center justify-center shrink-0",
-                message.role === 'user' ? "bg-zinc-800" : "bg-white text-black"
+                "w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 shadow-lg",
+                message.role === 'user' 
+                  ? "bg-zinc-800 text-white" 
+                  : "bg-gradient-to-tr from-blue-600 to-purple-600 text-white shadow-[0_0_15px_rgba(59,130,246,0.3)]"
               )}>
-                {message.role === 'user' ? <UserIcon size={16} /> : <Bot size={16} />}
+                {message.role === 'user' ? <UserIcon size={18} /> : <span className="font-bold">W</span>}
               </div>
               <div className={cn(
-                "max-w-[80%] space-y-2",
+                "max-w-[75%] space-y-2",
                 message.role === 'user' ? "text-right" : "text-left"
               )}>
                 <div className={cn(
-                  "px-4 py-3 rounded-2xl text-sm leading-relaxed",
+                  "px-5 py-4 rounded-3xl text-sm leading-relaxed shadow-xl backdrop-blur-md",
                   message.role === 'user' 
-                    ? "bg-zinc-800 text-zinc-100" 
-                    : "bg-zinc-900 text-zinc-300 border border-zinc-800"
+                    ? "bg-blue-600/10 text-zinc-100 border border-blue-500/20 rounded-tr-sm" 
+                    : "bg-white/5 text-zinc-300 border border-white/10 rounded-tl-sm"
                 )}>
                   <p className="whitespace-pre-wrap">{message.content}</p>
                   
                   {message.status === 'processing' && (
-                    <div className="mt-4 flex items-center gap-2 text-zinc-500 italic">
+                    <div className="mt-4 flex items-center gap-2 text-blue-400 italic font-medium px-2 py-1.5 rounded-lg bg-blue-500/10 w-fit">
                       <Loader2 size={14} className="animate-spin" />
                       Executing actions...
                     </div>
                   )}
                   
                   {message.status === 'success' && (
-                    <div className="mt-4 flex items-center gap-2 text-emerald-500">
+                    <div className="mt-4 flex items-center gap-2 text-emerald-400 font-medium px-2 py-1.5 rounded-lg bg-emerald-500/10 w-fit">
                       <CheckCircle2 size={14} />
-                      All actions completed successfully.
+                      Actions completed
                     </div>
                   )}
 
                   {message.status === 'error' && (
-                    <div className="mt-4 flex items-center gap-2 text-red-500">
+                    <div className="mt-4 flex items-center gap-2 text-rose-400 font-medium px-2 py-1.5 rounded-lg bg-rose-500/10 w-fit">
                       <AlertCircle size={14} />
-                      Something went wrong.
+                      Execution failed
                     </div>
                   )}
                 </div>
@@ -444,41 +494,38 @@ export default function ChatInterface({ user }: { user: User }) {
         </AnimatePresence>
         {isTyping && (
           <div className="flex gap-4">
-            <div className="w-8 h-8 rounded-full bg-white text-black flex items-center justify-center shrink-0">
-              <Bot size={16} />
+            <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-blue-600 to-purple-600 text-white shadow-[0_0_15px_rgba(59,130,246,0.3)] flex items-center justify-center shrink-0">
+              <span className="font-bold">W</span>
             </div>
-            <div className="bg-zinc-900 border border-zinc-800 px-4 py-3 rounded-2xl">
-              <div className="flex gap-1">
-                <div className="w-1 h-1 bg-zinc-500 rounded-full animate-bounce" />
-                <div className="w-1 h-1 bg-zinc-500 rounded-full animate-bounce [animation-delay:0.2s]" />
-                <div className="w-1 h-1 bg-zinc-500 rounded-full animate-bounce [animation-delay:0.4s]" />
+            <div className="bg-white/5 border border-white/10 backdrop-blur-md px-5 py-4 rounded-3xl rounded-tl-sm shadow-xl flex items-center h-[52px]">
+              <div className="flex gap-1.5">
+                <div className="w-1.5 h-1.5 bg-blue-400 rounded-full animate-bounce [animation-duration:1s]" />
+                <div className="w-1.5 h-1.5 bg-purple-400 rounded-full animate-bounce [animation-delay:0.2s] [animation-duration:1s]" />
+                <div className="w-1.5 h-1.5 bg-blue-400 rounded-full animate-bounce [animation-delay:0.4s] [animation-duration:1s]" />
               </div>
             </div>
           </div>
         )}
       </div>
 
-      <div className="py-8">
-        <div className="relative group">
+      <div className="absolute bottom-6 left-4 right-4 max-w-4xl mx-auto z-20">
+        <div className="relative group backdrop-blur-xl bg-zinc-900/60 rounded-3xl border border-white/10 shadow-[0_0_40px_rgba(0,0,0,0.5)] p-2 transition-all focus-within:border-white/20 focus-within:bg-zinc-900/80">
           <input
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleSend()}
-            placeholder="Type your instructions here..."
-            className="w-full bg-zinc-900 border border-zinc-800 rounded-2xl px-6 py-4 pr-16 focus:outline-none focus:border-zinc-700 transition-all text-sm"
+            placeholder="Ask WOODY to manage clients, assign tasks, or schedule meetings..."
+            className="w-full bg-transparent border-none px-6 py-4 pr-16 focus:outline-none focus:ring-0 text-white placeholder-zinc-500"
           />
           <button
             onClick={handleSend}
             disabled={!input.trim() || isTyping}
-            className="absolute right-3 top-1/2 -translate-y-1/2 w-10 h-10 bg-white text-black rounded-xl flex items-center justify-center hover:bg-zinc-200 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+            className="absolute right-4 top-1/2 -translate-y-1/2 w-12 h-12 bg-white text-black rounded-2xl flex items-center justify-center hover:scale-105 hover:shadow-[0_0_20px_rgba(255,255,255,0.3)] disabled:opacity-50 disabled:hover:scale-100 disabled:cursor-not-allowed transition-all duration-300"
           >
-            <Send size={18} />
+            <Send size={18} className="translate-x-0.5" />
           </button>
         </div>
-        <p className="text-[10px] text-zinc-600 text-center mt-4 uppercase tracking-widest">
-          WOODY can manage clients, projects, tasks, payments, and team members.
-        </p>
       </div>
     </div>
   );
