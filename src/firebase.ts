@@ -2,16 +2,7 @@ import { initializeApp } from "firebase/app";
 import { getAnalytics } from "firebase/analytics";
 import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
-
-const firebaseConfig = {
-  apiKey: "AIzaSyBHpCsohDhbZb96RRaOW6LAemagUeFp8UY",
-  authDomain: "woody-93acf.firebaseapp.com",
-  projectId: "woody-93acf",
-  storageBucket: "woody-93acf.firebasestorage.app",
-  messagingSenderId: "289384524127",
-  appId: "1:289384524127:web:909a07d19b50927fe26eea",
-  measurementId: "G-7R712523CF"
-};
+import firebaseConfig from '../firebase-applet-config.json';
 
 const app = initializeApp(firebaseConfig);
 const analytics = getAnalytics(app);
