@@ -451,7 +451,7 @@ export default function ChatInterface({ user }: { user: User }) {
                 "w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 shadow-lg",
                 message.role === 'user' 
                   ? "bg-zinc-800 text-white" 
-                  : "bg-gradient-to-tr from-blue-600 to-purple-600 text-white shadow-[0_0_15px_rgba(59,130,246,0.3)]"
+                  : "bg-white text-black shadow-[0_0_15px_rgba(255,255,255,0.1)]"
               )}>
                 {message.role === 'user' ? <UserIcon size={18} /> : <span className="font-bold">W</span>}
               </div>
@@ -462,13 +462,13 @@ export default function ChatInterface({ user }: { user: User }) {
                 <div className={cn(
                   "px-5 py-4 rounded-3xl text-sm leading-relaxed shadow-xl backdrop-blur-md",
                   message.role === 'user' 
-                    ? "bg-blue-600/10 text-zinc-100 border border-blue-500/20 rounded-tr-sm" 
+                    ? "bg-white/10 text-white border border-white/20 rounded-tr-sm" 
                     : "bg-white/5 text-zinc-300 border border-white/10 rounded-tl-sm"
                 )}>
                   <p className="whitespace-pre-wrap">{message.content}</p>
                   
                   {message.status === 'processing' && (
-                    <div className="mt-4 flex items-center gap-2 text-blue-400 italic font-medium px-2 py-1.5 rounded-lg bg-blue-500/10 w-fit">
+                    <div className="mt-4 flex items-center gap-2 text-zinc-400 italic font-medium px-2 py-1.5 rounded-lg bg-white/5 w-fit">
                       <Loader2 size={14} className="animate-spin" />
                       Executing actions...
                     </div>
@@ -494,14 +494,14 @@ export default function ChatInterface({ user }: { user: User }) {
         </AnimatePresence>
         {isTyping && (
           <div className="flex gap-4">
-            <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-blue-600 to-purple-600 text-white shadow-[0_0_15px_rgba(59,130,246,0.3)] flex items-center justify-center shrink-0">
+            <div className="w-10 h-10 rounded-2xl bg-white text-black shadow-[0_0_15px_rgba(255,255,255,0.1)] flex items-center justify-center shrink-0">
               <span className="font-bold">W</span>
             </div>
             <div className="bg-white/5 border border-white/10 backdrop-blur-md px-5 py-4 rounded-3xl rounded-tl-sm shadow-xl flex items-center h-[52px]">
               <div className="flex gap-1.5">
-                <div className="w-1.5 h-1.5 bg-blue-400 rounded-full animate-bounce [animation-duration:1s]" />
-                <div className="w-1.5 h-1.5 bg-purple-400 rounded-full animate-bounce [animation-delay:0.2s] [animation-duration:1s]" />
-                <div className="w-1.5 h-1.5 bg-blue-400 rounded-full animate-bounce [animation-delay:0.4s] [animation-duration:1s]" />
+                <div className="w-1.5 h-1.5 bg-zinc-400 rounded-full animate-bounce [animation-duration:1s]" />
+                <div className="w-1.5 h-1.5 bg-white rounded-full animate-bounce [animation-delay:0.2s] [animation-duration:1s]" />
+                <div className="w-1.5 h-1.5 bg-zinc-400 rounded-full animate-bounce [animation-delay:0.4s] [animation-duration:1s]" />
               </div>
             </div>
           </div>
