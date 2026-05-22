@@ -3,14 +3,8 @@ import { GoogleAuthProvider, signInWithPopup, User, onAuthStateChanged } from 'f
 
 const provider = new GoogleAuthProvider();
 // Workspace Scopes
-provider.addScope('https://www.googleapis.com/auth/calendar');
-provider.addScope('https://www.googleapis.com/auth/gmail.readonly');
+provider.addScope('https://www.googleapis.com/auth/calendar.events');
 provider.addScope('https://www.googleapis.com/auth/gmail.send');
-provider.addScope('https://www.googleapis.com/auth/gmail.modify');
-provider.addScope('https://www.googleapis.com/auth/meetings.space.created');
-provider.addScope('https://www.googleapis.com/auth/tasks');
-provider.addScope('https://www.googleapis.com/auth/documents');
-provider.addScope('https://www.googleapis.com/auth/spreadsheets');
 
 let isSigningIn = false;
 let cachedAccessToken: string | null = null;
