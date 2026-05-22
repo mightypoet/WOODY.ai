@@ -80,7 +80,13 @@ export type AIActionType =
   | 'CREATE_TEAM_MEMBER'
   | 'ASSIGN_TASK_TO_MEMBER'
   | 'SEND_NOTIFICATION'
-  | 'GET_TEAM_TASKS';
+  | 'GET_TEAM_TASKS'
+  | 'CREATE_CALENDAR_EVENT'
+  | 'SEND_GMAIL'
+  | 'CREATE_GOOGLE_MEET_SPACE'
+  | 'CREATE_GOOGLE_TASK'
+  | 'CREATE_GOOGLE_DOC'
+  | 'CREATE_GOOGLE_SHEET';
 
 export interface AIAction {
   type: AIActionType;

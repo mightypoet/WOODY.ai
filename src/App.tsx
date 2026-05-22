@@ -1,9 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { db } from './firebase';
 import { dbService, testConnection } from './services/dbService';
-import { googleSignIn, initAuth, logout as googleLogout } from './services/googleAuth';
 import { User, UserRole } from './types';
-import { Layout, MessageSquare, LayoutDashboard, Users, Briefcase, CreditCard, LogOut, Loader2, Send, Building2, AlertCircle } from 'lucide-react';
+import { Layout, MessageSquare, LayoutDashboard, Users, Briefcase, CreditCard, LogOut, Loader2, Send, Building2, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import ErrorBoundary from './components/ErrorBoundary';
 import ChatInterface from './components/ChatInterface';
@@ -12,98 +11,58 @@ import ClientList from './components/ClientList';
 import ProjectBoard from './components/ProjectBoard';
 import PaymentTracker from './components/PaymentTracker';
 import TeamManagement from './components/TeamManagement';
+import Todos from './components/Todos';
 
 export default function App() {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [authError, setAuthError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'chat' | 'dashboard' | 'clients' | 'projects' | 'payments' | 'team'>('chat');
+  const [activeTab, setActiveTab] = useState<'chat' | 'dashboard' | 'clients' | 'projects' | 'payments' | 'team' | 'todos'>('chat');
 
   useEffect(() => {
-    console.log("WOODY: App initialized, checking Google Auth.");
+    console.log("WOODY: App initialized, mocked Auth mode.");
     testConnection();
     
-    // Subscribe to auth state changes for Workspace integration
-    const unsubscribe = initAuth(
-      async (fUser, fToken) => {
-        let userData;
-        try {
-          userData = await dbService.get('users', fUser.uid) as any;
-        } catch (err: any) {
-          console.warn("Firestore fetch error:", err);
-        }
-        
-        if (!userData) {
-          userData = {
-            uid: fUser.uid,
-            email: fUser.email || '',
-            name: fUser.displayName || 'Unknown User',
-            role: 'admin',
-            createdAt: new Date().toISOString()
-          };
-          try {
-            await dbService.set('users', fUser.uid, userData);
-          } catch(e) {
-            console.warn("Could not save to DB, using local default.");
-          }
-        }
-        setUser(userData as User);
-        setLoading(false);
-      },
-      () => {
-        setUser(null);
-        setLoading(false);
-      }
-    );
-    
-    return () => {
-      // Unsubscribe wrapper
-      unsubscribe.then(unsub => unsub && unsub());
-    }
+    // Simulate initial loading check
+    setTimeout(() => {
+      setLoading(false);
+    }, 500);
   }, []);
 
   const handleLogin = async () => {
     setLoading(true);
     setAuthError(null);
     try {
-      const result = await googleSignIn();
-      if (result) {
-        let userData;
-        try {
-          userData = await dbService.get('users', result.user.uid) as any;
-        } catch (err: any) {
-          console.warn("Firestore fetch error:", err);
-        }
-        
-        if (!userData) {
-          userData = {
-            uid: result.user.uid,
-            email: result.user.email || '',
-            name: result.user.displayName || 'User',
-            role: 'admin',
-            createdAt: new Date().toISOString()
-          };
-          try {
-            await dbService.set('users', result.user.uid, userData);
-          } catch(e) {}
-        }
-        setUser(userData as User);
+      const mockUid = "user-woody-123";
+      let userData;
+      try {
+        userData = await dbService.get('users', mockUid) as any;
+      } catch (err: any) {
+        console.warn("Firestore fetch error:", err);
       }
+      
+      if (!userData) {
+        userData = {
+          uid: mockUid,
+          email: 'rohan00as@gmail.com',
+          name: 'ROHAN DAS',
+          role: 'admin',
+          createdAt: new Date().toISOString()
+        };
+        try {
+          await dbService.set('users', mockUid, userData);
+        } catch(e) {}
+      }
+      setUser(userData as User);
     } catch(e: any) {
       console.error(e);
-      if (e.code === 'auth/unauthorized-domain') {
-        const domain = window.location.hostname;
-        setAuthError(`Google Sign-In failed because this domain (${domain}) is not authorized in your Firebase Project. Please go to Firebase Console -> Authentication -> Settings -> Authorized Domains and add: ${domain}`);
-      } else {
-        setAuthError("Failed to login to Woody OS with Google Workspace. Please ensure popups are allowed.");
-      }
+      setAuthError("Failed to login to Woody OS.");
     } finally {
       setLoading(false);
     }
   };
 
   const handleLogout = async () => {
-    await googleLogout();
     setUser(null);
   };
 
@@ -118,20 +77,31 @@ export default function App() {
 
   if (!user) {
     return (
-      <div className="h-screen w-screen flex flex-col items-center justify-center bg-[#0a0a0a] text-white p-4 relative overflow-hidden">
+      <div className="h-screen w-screen flex flex-col items-center justify-center bg-zinc-950 text-white p-4 relative overflow-hidden">
         
+        {/* Glow Effects */}
+        <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none flex items-center justify-center">
+          <div className="absolute w-[800px] h-[800px] rounded-full bg-blue-600/10 blur-[150px]" />
+          <div className="absolute w-[600px] h-[600px] rounded-full bg-purple-600/10 blur-[150px] translate-x-1/4 translate-y-1/4" />
+        </div>
+
         <motion.div 
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="text-center space-y-8 max-w-md relative z-10"
+          initial={{ opacity: 0, y: 20, scale: 0.95 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          transition={{ duration: 0.5, ease: 'easeOut' }}
+          className="text-center space-y-10 max-w-md relative z-10 glass-panel p-12 flex flex-col items-center rounded-3xl border border-white/10 bg-zinc-950/50 backdrop-blur-3xl shadow-2xl"
         >
-          <div className="space-y-2">
-            <h1 className="text-6xl font-bold tracking-tighter">WOODY</h1>
-            <p className="text-zinc-500 text-lg">The AI Operating System for Reelywood.</p>
+          <div className="w-20 h-20 rounded-2xl bg-gradient-to-tr from-blue-600 to-purple-600 flex items-center justify-center shadow-[0_0_40px_rgba(59,130,246,0.3)] mb-4">
+            <span className="text-4xl font-bold text-white tracking-tighter">W</span>
+          </div>
+          
+          <div className="space-y-3">
+            <h1 className="text-4xl font-bold tracking-tighter bg-clip-text text-transparent bg-gradient-to-b from-white to-white/50">WOODY</h1>
+            <p className="text-zinc-400 text-sm tracking-wide">The AI Operating System for Reelywood.</p>
           </div>
           
           {authError && (
-            <div className="bg-red-500/10 border border-red-500/20 text-red-400 p-4 rounded-xl text-sm text-left">
+            <div className="bg-rose-500/10 border border-rose-500/20 text-rose-400 p-4 rounded-xl text-sm text-left w-full">
               <div className="flex items-start gap-2">
                 <AlertCircle size={16} className="mt-0.5 shrink-0" />
                 <p>{authError}</p>
@@ -141,10 +111,9 @@ export default function App() {
 
           <button 
             onClick={handleLogin}
-            className="w-full py-4 bg-white text-black font-semibold rounded-xl hover:bg-zinc-200 transition-colors flex items-center justify-center gap-2"
+            className="w-full py-4 px-6 bg-white hover:bg-zinc-200 text-zinc-950 font-semibold rounded-xl transition-all flex items-center justify-center gap-3 shadow-[0_0_20px_rgba(255,255,255,0.1)] active:scale-[0.98]"
           >
-            <img src="https://www.google.com/favicon.ico" className="w-4 h-4" alt="Google" />
-            Sign in with Google
+            Enter WOODY OS
           </button>
         </motion.div>
       </div>
@@ -158,6 +127,7 @@ export default function App() {
     { id: 'projects', label: 'Projects', icon: Briefcase },
     { id: 'payments', label: 'Payments', icon: CreditCard },
     { id: 'team', label: 'Team', icon: Users },
+    { id: 'todos', label: 'Supabase', icon: CheckCircle2 },
   ];
 
   return (
@@ -240,6 +210,7 @@ export default function App() {
               {activeTab === 'projects' && <ProjectBoard user={user} />}
               {activeTab === 'payments' && <PaymentTracker user={user} />}
               {activeTab === 'team' && <TeamManagement user={user} />}
+              {activeTab === 'todos' && <Todos />}
             </motion.div>
           </AnimatePresence>
         </main>
