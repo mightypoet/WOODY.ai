@@ -47,15 +47,16 @@ export default function ChatInterface({ user }: { user: User }) {
         switch (action.type) {
           case 'CREATE_CLIENT':
             await dbService.create('clients', { 
-              name: action.payload.client_name,
-              brand: action.payload.brand || action.payload.client_name,
-              contact: action.payload.contact || '',
+              name: action.payload.name || action.payload.client_name || '',
+              email: action.payload.email || '',
+              brand: action.payload.brand || action.payload.name || action.payload.client_name || '',
+              contact: action.payload.contact || action.payload.email || '',
               services: action.payload.services || [],
               paymentTerms: action.payload.payment_terms || '',
               totalBudget: action.payload.deal_value || action.payload.totalBudget || 0,
               createdAt: now 
             });
-            results.push(`Created client: ${action.payload.client_name}`);
+            results.push(`Created client: ${action.payload.name || action.payload.client_name}`);
             break;
 
           case 'CREATE_PROJECT': {
@@ -327,8 +328,8 @@ export default function ChatInterface({ user }: { user: User }) {
             const res = await calendarService.createEvent(
               action.payload.summary,
               action.payload.description || '',
-              action.payload.startIso,
-              action.payload.endIso
+              action.payload.startDateTime || action.payload.startIso,
+              action.payload.endDateTime || action.payload.endIso
             );
             results.push(`Created Google Calendar event: ${action.payload.summary} (Link: ${res.htmlLink})`);
             break;
