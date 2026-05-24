@@ -13,6 +13,10 @@
   ],
   "rewrites": [
     {
+      "source": "/api/telegram-webhook",
+      "destination": "/api/telegram-webhook"
+    },
+    {
       "source": "/api/(.*)",
       "destination": "/server.ts"
     },
