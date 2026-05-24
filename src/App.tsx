@@ -19,12 +19,14 @@ export default function App() {
   const [authError, setAuthError] = useState<string | null>(null);
   const [dbError, setDbError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'chat' | 'dashboard' | 'clients' | 'projects' | 'payments' | 'team' | 'todos'>('chat');
+  const [supabaseConfigError, setSupabaseConfigError] = useState<boolean>(false);
 
   useEffect(() => {
     // If we're inside the popup, let Supabase process hash then close
     if (window.opener && window.name === 'oauth_popup') {
       setTimeout(() => window.close(), 1000);
     }
+
     
     testConnection();
     
@@ -34,7 +36,7 @@ export default function App() {
         let userData;
         try {
           // If the get fails, it will fall through to null check
-          const rawData = await dbService.get('users', fUser.uid);
+          const rawData = await dbService.get('users', fUser.id);
           userData = rawData as any;
         } catch (err: any) {
           console.warn("Firestore fetch error:", err);
@@ -42,14 +44,14 @@ export default function App() {
         
         if (!userData) {
           userData = {
-            uid: fUser.uid,
+            id: fUser.id,
             email: fUser.email || '',
             name: fUser.displayName || 'Unknown User',
             role: 'admin',
             createdAt: new Date().toISOString()
           };
           try {
-            await dbService.set('users', fUser.uid, userData);
+            await dbService.set('users', fUser.id, userData);
           } catch(e) {
             console.warn("Could not save to DB, using local default.");
           }
@@ -72,38 +74,37 @@ export default function App() {
   const handleLogin = async () => {
     setLoading(true);
     setAuthError(null);
+    setSupabaseConfigError(false);
     try {
       const result = await googleSignIn();
       if (result) {
         let userData;
         try {
-          userData = await dbService.get('users', result.user.uid) as any;
+          userData = await dbService.get('users', result.user.id) as any;
         } catch (err: any) {
           console.warn("Firestore fetch error:", err);
         }
         
         if (!userData) {
           userData = {
-            uid: result.user.uid,
+            id: result.user.id,
             email: result.user.email || '',
             name: result.user.displayName || 'User',
             role: 'admin',
             createdAt: new Date().toISOString()
           };
           try {
-            await dbService.set('users', result.user.uid, userData);
+            await dbService.set('users', result.user.id, userData);
           } catch(e) {}
         }
         setUser(userData as User);
+      } else {
+        // If popup closed without result
+        setSupabaseConfigError(true);
       }
     } catch(e: any) {
       console.error(e);
-      if (e.code === 'auth/unauthorized-domain') {
-        const domain = window.location.hostname;
-        setAuthError(`Google Sign-In failed because this domain (${domain}) is not authorized in your Firebase Project. Please go to Firebase Console -> Authentication -> Settings -> Authorized Domains and add: ${domain}`);
-      } else {
-        setAuthError("Failed to login to Woody OS with Google. Please ensure popups are allowed.");
-      }
+      setSupabaseConfigError(true);
     } finally {
       setLoading(false);
     }
@@ -137,11 +138,22 @@ export default function App() {
             <p className="text-[#888888] text-sm tracking-wide font-medium">The AI Operating System for Reelywood.</p>
           </div>
           
-          {authError && (
-            <div className="bg-white/10 border border-white/20 text-white p-4 rounded-xl text-sm text-left w-full mt-4">
-              <div className="flex items-start gap-2">
-                <AlertCircle size={16} className="mt-0.5 shrink-0" />
-                <p>{authError}</p>
+          {supabaseConfigError && (
+            <div className="bg-red-500/10 border border-red-500/20 text-red-100 p-4 rounded-xl text-sm w-full mt-4 flex flex-col gap-3 text-left">
+              <div className="flex items-start gap-2 text-red-400 font-semibold">
+                <AlertCircle size={18} className="mt-0.5 shrink-0" />
+                <p>Supabase Redirect Configuration Missing</p>
+              </div>
+              <div className="space-y-2 leading-relaxed">
+                <p>Authentication succeeded, but Supabase failed to redirect back to this application because this URL is not whitelisted.</p>
+                <p><strong>Please follow these steps:</strong></p>
+                <ol className="list-decimal pl-4 space-y-1 text-red-200">
+                  <li>Go to your <strong>Supabase Dashboard</strong>.</li>
+                  <li>Go to <strong>Authentication</strong> &gt; <strong>URL Configuration</strong>.</li>
+                  <li>Under <strong>Redirect URIs</strong>, click "Add URI".</li>
+                  <li>Copy and paste this exact URL:<br/> <code className="block mt-1 bg-black/40 p-2 rounded selectable text-white break-all">https://ais-dev-hgkbm6uthvuybsjxlc5lgl-57159167953.asia-southeast1.run.app</code> </li>
+                  <li>Try signing in again.</li>
+                </ol>
               </div>
             </div>
           )}

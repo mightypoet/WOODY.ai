@@ -2,7 +2,7 @@ import { supabase } from '../utils/supabase';
 
 // We map User type locally, matching what was there
 export interface AuthUser {
-  uid: string;
+  id: string;
   email: string | null;
   displayName: string | null;
 }
@@ -18,7 +18,7 @@ export const initAuth = (
       if (session?.user) {
         cachedAccessToken = session.provider_token || session.access_token;
         const user: AuthUser = {
-          uid: session.user.id,
+          id: session.user.id,
           email: session.user.email || null,
           displayName: session.user.user_metadata?.full_name || session.user.email?.split('@')[0] || null,
         };
@@ -39,6 +39,13 @@ export const initAuth = (
 
 export const googleSignIn = async (): Promise<{ user: AuthUser; accessToken: string } | null> => {
   try {
+    // Open window synchronously to avoid popup blockers
+    const authWindow = window.open('', 'oauth_popup', 'width=600,height=700');
+    if (!authWindow) {
+      throw new Error("Popup blocked. Please allow popups for this site to connect your Google account.");
+    }
+    authWindow.document.write("Loading Google Secure Login...");
+
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
@@ -48,13 +55,13 @@ export const googleSignIn = async (): Promise<{ user: AuthUser; accessToken: str
       }
     });
 
-    if (error) throw error;
+    if (error) {
+      authWindow.close();
+      throw error;
+    }
     
     if (data?.url) {
-      const authWindow = window.open(data.url, 'oauth_popup', 'width=600,height=700');
-      if (!authWindow) {
-        throw new Error("Popup blocked. Please allow popups for this site to connect your Google account.");
-      }
+      authWindow.location.href = data.url;
       
       // Wait for the popup to redirect back to our origin and capture the hash
       return new Promise((resolve, reject) => {
@@ -83,7 +90,7 @@ export const googleSignIn = async (): Promise<{ user: AuthUser; accessToken: str
                 cachedAccessToken = sessionData.session.provider_token || sessionData.session.access_token;
                 resolve({
                   user: {
-                    uid: u.id,
+                    id: u.id,
                     email: u.email || null,
                     displayName: u.user_metadata?.full_name || null,
                   },
@@ -107,7 +114,7 @@ export const googleSignIn = async (): Promise<{ user: AuthUser; accessToken: str
               cachedAccessToken = sessionData.session.provider_token || sessionData.session.access_token;
               resolve({
                 user: {
-                  uid: u.id,
+                  id: u.id,
                   email: u.email || null,
                   displayName: u.user_metadata?.full_name || null,
                 },
@@ -121,6 +128,7 @@ export const googleSignIn = async (): Promise<{ user: AuthUser; accessToken: str
       });
     }
 
+    authWindow.close();
     return null;
   } catch (error) {
     console.error('Sign in error:', error);
