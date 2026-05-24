@@ -21,6 +21,11 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<'chat' | 'dashboard' | 'clients' | 'projects' | 'payments' | 'team' | 'todos'>('chat');
 
   useEffect(() => {
+    // If we're inside the popup, let Supabase process hash then close
+    if (window.opener && window.name === 'oauth_popup') {
+      setTimeout(() => window.close(), 1000);
+    }
+    
     testConnection();
     
     // Subscribe to auth state changes for Workspace integration
@@ -144,9 +149,9 @@ export default function App() {
           <div className="w-full pt-8">
             <button 
               onClick={handleLogin}
-              className="w-full py-3 px-6 bg-white hover:bg-gray-100 text-black font-semibold rounded-lg transition-all flex items-center justify-center gap-3"
+              className="w-full py-3.5 px-6 bg-white hover:bg-gray-50 text-gray-900 border border-gray-200 font-semibold rounded-xl transition-all flex items-center justify-center gap-3 shadow-[0_2px_10px_rgba(0,0,0,0.1)] active:scale-[0.98]"
             >
-              <img src="https://www.google.com/favicon.ico" className="w-4 h-4" alt="Google" />
+              <img src="https://www.google.com/favicon.ico" className="w-5 h-5" alt="Google" />
               Sign in with Google
             </button>
           </div>

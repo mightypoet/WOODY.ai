@@ -42,28 +42,83 @@ export const googleSignIn = async (): Promise<{ user: AuthUser; accessToken: str
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
+        skipBrowserRedirect: true,
+        redirectTo: window.location.origin,
         scopes: 'https://www.googleapis.com/auth/calendar https://www.googleapis.com/auth/gmail.send https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/meetings.space.created https://www.googleapis.com/auth/tasks https://www.googleapis.com/auth/documents https://www.googleapis.com/auth/spreadsheets'
       }
     });
 
     if (error) throw error;
     
-    // We don't get the user immediately with OAuth redirect unless we fetch session
-    // In popup mode (Supabase doesn't easily do popup natively without extra code), we assume the redirect flow.
-    // However, if we need it immediately:
-    const { data: sessionData } = await supabase.auth.getSession();
-    
-    if (sessionData?.session?.user) {
-      const u = sessionData.session.user;
-      cachedAccessToken = sessionData.session.provider_token || sessionData.session.access_token;
-      return {
-        user: {
-          uid: u.id,
-          email: u.email || null,
-          displayName: u.user_metadata?.full_name || null,
-        },
-        accessToken: cachedAccessToken
-      };
+    if (data?.url) {
+      const authWindow = window.open(data.url, 'oauth_popup', 'width=600,height=700');
+      if (!authWindow) {
+        throw new Error("Popup blocked. Please allow popups for this site to connect your Google account.");
+      }
+      
+      // Wait for the popup to redirect back to our origin and capture the hash
+      return new Promise((resolve, reject) => {
+        const checkInterval = setInterval(async () => {
+          try {
+            // This will throw a DOMException if the popup is still on google.com (cross-origin)
+            const popupUrl = authWindow.location.href;
+            const popupHash = authWindow.location.hash;
+            
+            if (popupHash && popupHash.includes('access_token=')) {
+              clearInterval(checkInterval);
+              
+              const params = new URLSearchParams(popupHash.substring(1));
+              const accessToken = params.get('access_token');
+              const refreshToken = params.get('refresh_token');
+              
+              if (accessToken && refreshToken) {
+                await supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken });
+              }
+              
+              authWindow.close();
+              
+              const { data: sessionData } = await supabase.auth.getSession();
+              if (sessionData?.session?.user) {
+                const u = sessionData.session.user;
+                cachedAccessToken = sessionData.session.provider_token || sessionData.session.access_token;
+                resolve({
+                  user: {
+                    uid: u.id,
+                    email: u.email || null,
+                    displayName: u.user_metadata?.full_name || null,
+                  },
+                  accessToken: cachedAccessToken!
+                });
+              } else {
+                resolve(null);
+              }
+              return;
+            }
+          } catch (e) {
+            // Ignore cross-origin errors while navigating
+          }
+
+          if (authWindow.closed) {
+            clearInterval(checkInterval);
+            // Fallback check
+            const { data: sessionData } = await supabase.auth.getSession();
+            if (sessionData?.session?.user) {
+              const u = sessionData.session.user;
+              cachedAccessToken = sessionData.session.provider_token || sessionData.session.access_token;
+              resolve({
+                user: {
+                  uid: u.id,
+                  email: u.email || null,
+                  displayName: u.user_metadata?.full_name || null,
+                },
+                accessToken: cachedAccessToken!
+              });
+            } else {
+              resolve(null);
+            }
+          }
+        }, 500);
+      });
     }
 
     return null;
