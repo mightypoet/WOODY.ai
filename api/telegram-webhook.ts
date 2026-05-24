@@ -40,106 +40,51 @@ export default async function handler(req: any, res: any) {
     };
 
     try {
-      if (text === "/projects") {
-        const { data: projectsData, error: projError } = await supabase.from('projects').select('*');
-        if (projError) throw projError;
-        const projects = projectsData || [];
-        
-        const { data: tasksData, error: taskError } = await supabase.from('tasks').select('*');
-        if (taskError) throw taskError;
-        const tasks = tasksData || [];
+      // Execute Routing Architecture
+      if (text === '/projects') {
+        const { data: projects, error } = await supabase
+          .from('projects')
+          .select('name, status');
 
-        let msg = "📊 *Active Client Projects*\n\n";
-        if (projects.length === 0) {
-          msg += "No active projects found.";
+        if (error) throw error;
+
+        let responseText = "📋 *Active Projects Summary:*\n\n";
+        if (!projects || projects.length === 0) {
+          responseText += "No active projects found in Supabase.";
         } else {
           projects.forEach(p => {
-            const pTasks = tasks.filter(t => t.projectId === p.id);
-            const total = pTasks.length;
-            const completed = pTasks.filter(t => t.status === "completed").length;
-            const percentage = total === 0 ? 0 : Math.round((completed / total) * 100);
-            const outstanding = total - completed;
-
-            msg += `🔹 *${p.name || 'Unnamed Project'}*\n`;
-            msg += `   Status: ${p.status || 'Unknown'}\n`;
-            msg += `   Completion: ${percentage}% [${completed}/${total}]\n`;
-            msg += `   Outstanding Tasks: ${outstanding}\n\n`;
+            responseText += `• *${p.name}*: Status is ${p.status || 'Active'}\n`;
           });
         }
-        await reply(msg);
+        await reply(responseText);
+      } 
+      
+      else if (text === '/payments') {
+        const { data: payments, error } = await supabase
+          .from('payments')
+          .select('client_name, amount_due, status');
 
-      } else if (text === "/payments") {
-        const { data: paymentsData, error } = await supabase.from('payments').select('*');
         if (error) throw error;
-        const payments = paymentsData || [];
-        
-        let msg = "💰 *Recent Financial Tracking*\n\n";
+
+        let responseText = "💰 *Pending Financials:*\n\n";
         let totalPending = 0;
-        
-        if (payments.length === 0) {
-          msg += "No payment records found.";
+
+        if (!payments || payments.length === 0) {
+          responseText += "No financial records found.";
         } else {
           payments.forEach(p => {
-            const balance = (p.totalAmount || 0) - (p.paidAmount || 0);
-            if (balance > 0) totalPending += balance;
-            msg += `💵 *Amount:* $${p.totalAmount || 0} (Paid: $${p.paidAmount || 0})\n`;
-            msg += `   Status: ${p.status || 'Unknown'}\n`;
-            if (p.dueDate) msg += `   Due: ${p.dueDate}\n`;
-            msg += `\n`;
+            if (p.status !== 'paid') {
+              responseText += `• *${p.client_name}*: ₹${p.amount_due || 0}\n`;
+              totalPending += Number(p.amount_due || 0);
+            }
           });
-          msg += `🔥 *Total Pending Balance:* $${totalPending.toFixed(2)}`;
+          responseText += `\n*Total Outstanding Balance:* ₹${totalPending}`;
         }
-        await reply(msg);
-
-      } else if (text.startsWith("/tasks")) {
-        const parts = text.split(" ");
-        if (parts.length < 2) {
-          await reply("⚠️ Please provide a client name. Example: `/tasks client1`");
-          return res.status(200).send("OK");
-        }
-        
-        const clientNameQuery = parts.slice(1).join(" ").toLowerCase();
-        
-        const { data: clientsData, error: clientsError } = await supabase.from('clients').select('*');
-        if (clientsError) throw clientsError;
-        const clients = clientsData || [];
-        const foundClient = clients.find(c => c.name && c.name.toLowerCase().includes(clientNameQuery));
-        
-        if (!foundClient) {
-          await reply(`⚠️ No client found matching "${parts.slice(1).join(" ")}"`);
-          return res.status(200).send("OK");
-        }
-
-        const { data: projectsData, error: projError } = await supabase.from('projects').select('id').eq('clientId', foundClient.id);
-        if (projError) throw projError;
-        const projectIds = projectsData ? projectsData.map(doc => doc.id) : [];
-
-        if (projectIds.length === 0) {
-          await reply(`📋 *Tasks for ${foundClient.name}*\n\nNo active projects for this client.`);
-          return res.status(200).send("OK");
-        }
-
-        const { data: tasksData, error: tasksError } = await supabase.from('tasks').select('*').in('projectId', projectIds);
-        if (tasksError) throw tasksError;
-        const tasks = tasksData || [];
-        
-        let msg = `📋 *Tasks for ${foundClient.name}*\n\n`;
-        const pendingTasks = tasks.filter(t => t.status !== "completed");
-        
-        if (pendingTasks.length === 0) {
-          msg += "✅ All tasks completed!";
-        } else {
-          pendingTasks.forEach(t => {
-            msg += `🔸 *${t.title}*\n`;
-            msg += `   Status: ${t.status || 'Unknown'}\n`;
-            if (t.deadline) msg += `   Due: ${new Date(t.deadline).toLocaleDateString()}\n`;
-            msg += "\n";
-          });
-        }
-        await reply(msg);
-
-      } else {
-        await reply("🤖 *Unknown command.*\nAvailable commands:\n- `/projects`\n- `/payments`\n- `/tasks [ClientName]`");
+        await reply(responseText);
+      } 
+      
+      else {
+        await reply("❓ Unknown command. Try typing `/projects` or `/payments`!");
       }
     } catch (cmdError: any) {
       console.error("Command error:", cmdError);
