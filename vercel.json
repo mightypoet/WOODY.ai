@@ -11,10 +11,15 @@
       "use": "@vercel/node"
     }
   ],
+  "functions": {
+    "api/telegram-webhook.ts": {
+      "runtime": "vercel-node@latest"
+    }
+  },
   "rewrites": [
     {
       "source": "/api/telegram-webhook",
-      "destination": "/api/telegram-webhook"
+      "destination": "/api/telegram-webhook.ts"
     },
     {
       "source": "/api/(.*)",
