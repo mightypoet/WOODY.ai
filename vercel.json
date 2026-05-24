@@ -1,8 +1,5 @@
 {
   "version": 2,
-  "functions": {
-    "api/telegram-webhook.ts": {}
-  },
   "rewrites": [
     {
       "source": "/api/telegram-webhook",
