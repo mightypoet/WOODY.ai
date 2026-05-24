@@ -1,167 +1,136 @@
-import { 
-  collection, 
-  doc, 
-  setDoc, 
-  getDoc, 
-  getDocs, 
-  query, 
-  where, 
-  onSnapshot, 
-  addDoc, 
-  updateDoc, 
-  deleteDoc,
-  Timestamp,
-  getDocFromServer
-} from 'firebase/firestore';
-import { db, auth } from '../firebase';
-
-export enum OperationType {
-  CREATE = 'create',
-  UPDATE = 'update',
-  DELETE = 'delete',
-  LIST = 'list',
-  GET = 'get',
-  WRITE = 'write',
-}
-
-interface FirestoreErrorInfo {
-  error: string;
-  operationType: OperationType;
-  path: string | null;
-  authInfo: {
-    userId: string | undefined;
-    email: string | null | undefined;
-    emailVerified: boolean | undefined;
-    isAnonymous: boolean | undefined;
-    tenantId: string | null | undefined;
-    providerInfo: any[];
-  }
-}
-
-function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null) {
-  const errInfo: FirestoreErrorInfo = {
-    error: error instanceof Error ? error.message : String(error),
-    authInfo: {
-      userId: auth.currentUser?.uid,
-      email: auth.currentUser?.email,
-      emailVerified: auth.currentUser?.emailVerified,
-      isAnonymous: auth.currentUser?.isAnonymous,
-      tenantId: auth.currentUser?.tenantId,
-      providerInfo: auth.currentUser?.providerData.map(provider => ({
-        providerId: provider.providerId,
-        displayName: provider.displayName,
-        email: provider.email,
-        photoUrl: provider.photoURL
-      })) || []
-    },
-    operationType,
-    path
-  }
-  console.error('Firestore Error: ', JSON.stringify(errInfo));
-  
-  if (errInfo.error.includes('Missing or insufficient permissions') || errInfo.error.includes('the client is offline')) {
-    window.dispatchEvent(new CustomEvent('firestore-permissions-error', { 
-      detail: { path } 
-    }));
-  }
-}
+import { supabase } from '../utils/supabase';
 
 export async function testConnection() {
-  try {
-    await getDocFromServer(doc(db, 'test', 'connection'));
-    console.log("WOODY: Firestore connection successful.");
-  } catch (error) {
-    if(error instanceof Error && error.message.includes('the client is offline')) {
-      console.error("WOODY: Firebase Connection Error: The client is offline.");
-      console.warn("MANDATORY ACTION: Please go to the Firebase Console (https://console.firebase.google.com/), select your project (woody-93acf), and ensure 'Firestore Database' is ENABLED in 'Test Mode'.");
-    } else {
-      console.error("WOODY: Firestore connection failed:", error);
-    }
-  }
+  console.log("Supabase connection active.");
 }
 
 export const dbService = {
-  async create(path: string, data: any) {
+  async create(table: string, data: any) {
     try {
-      const docRef = await addDoc(collection(db, path), {
-        ...data,
-        createdAt: new Date().toISOString()
-      });
-      return docRef.id;
+      const { data: insertedData, error } = await supabase
+        .from(table)
+        .insert([{ ...data, createdAt: new Date().toISOString() }])
+        .select()
+        .single();
+      
+      if (error) throw error;
+      return insertedData?.id;
     } catch (error) {
-      handleFirestoreError(error, OperationType.CREATE, path);
+      console.error(`Supabase create error in ${table}:`, error);
+      throw error;
     }
   },
 
-  async set(path: string, id: string, data: any) {
+  async set(table: string, id: string, data: any) {
     try {
-      await setDoc(doc(db, path, id), {
-        ...data,
-        updatedAt: new Date().toISOString()
-      });
+      const { error } = await supabase
+        .from(table)
+        .upsert([{ ...data, id, updatedAt: new Date().toISOString() }]);
+      
+      if (error) throw error;
     } catch (error) {
-      handleFirestoreError(error, OperationType.WRITE, `${path}/${id}`);
+      console.error(`Supabase set error in ${table}/${id}:`, error);
+      throw error;
     }
   },
 
-  async update(path: string, id: string, data: any) {
+  async update(table: string, id: string, data: any) {
     try {
-      await updateDoc(doc(db, path, id), data);
+      const { error } = await supabase
+        .from(table)
+        .update(data)
+        .eq('id', id);
+      
+      if (error) throw error;
     } catch (error) {
-      handleFirestoreError(error, OperationType.UPDATE, `${path}/${id}`);
+      console.error(`Supabase update error in ${table}/${id}:`, error);
+      throw error;
     }
   },
 
-  async get(path: string, id: string) {
+  async get(table: string, id: string) {
     try {
-      const docSnap = await getDoc(doc(db, path, id));
-      return docSnap.exists() ? { id: docSnap.id, ...docSnap.data() } : null;
+      const { data, error } = await supabase
+        .from(table)
+        .select('*')
+        .eq('id', id)
+        .single();
+        
+      // PGRST116 is not found
+      if (error && error.code !== 'PGRST116') throw error; 
+      return data || null;
     } catch (error) {
-      handleFirestoreError(error, OperationType.GET, `${path}/${id}`);
+      console.error(`Supabase get error in ${table}/${id}:`, error);
       return null;
     }
   },
 
-  async list(path: string, filters?: { field: string, operator: any, value: any }[]) {
+  async list(table: string, filters?: { field: string, operator: string, value: any }[]) {
     try {
-      let q = query(collection(db, path));
+      let query = supabase.from(table).select('*');
+      
       if (filters) {
         filters.forEach(f => {
-          q = query(q, where(f.field, f.operator, f.value));
+          if (f.operator === '==') {
+            query = query.eq(f.field, f.value);
+          } else if (f.operator === '!=') {
+            query = query.neq(f.field, f.value);
+          } else if (f.operator === '>') {
+            query = query.gt(f.field, f.value);
+          } else if (f.operator === '<') {
+            query = query.lt(f.field, f.value);
+          } else if (f.operator === '>=') {
+            query = query.gte(f.field, f.value);
+          } else if (f.operator === '<=') {
+            query = query.lte(f.field, f.value);
+          } else if (f.operator === 'in') {
+            query = query.in(f.field, f.value);
+          } else {
+            console.warn(`Unsupported operator ${f.operator} for field ${f.field}`);
+          }
         });
       }
-      const querySnapshot = await getDocs(q);
-      return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      
+      const { data, error } = await query;
+      if (error) throw error;
+      return data || [];
     } catch (error) {
-      handleFirestoreError(error, OperationType.LIST, path);
+      console.error(`Supabase list error in ${table}:`, error);
       return [];
     }
   },
 
-  async delete(path: string, id: string) {
+  async delete(table: string, id: string) {
     try {
-      await deleteDoc(doc(db, path, id));
+      const { error } = await supabase
+        .from(table)
+        .delete()
+        .eq('id', id);
+        
+      if (error) throw error;
     } catch (error) {
-      handleFirestoreError(error, OperationType.DELETE, `${path}/${id}`);
+      console.error(`Supabase delete error in ${table}/${id}:`, error);
+      throw error;
     }
   },
 
-  subscribe(path: string, callback: (data: any[]) => void, filters?: { field: string, operator: any, value: any }[]) {
-    let q = query(collection(db, path));
-    if (filters) {
-      filters.forEach(f => {
-        q = query(q, where(f.field, f.operator, f.value));
-      });
-    }
-    return onSnapshot(q, (snapshot) => {
-      callback(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-    }, (error) => {
-      console.error('Firestore Subscribe Error:', error);
-      if (error instanceof Error && error.message.includes('Missing or insufficient permissions')) {
-        window.dispatchEvent(new CustomEvent('firestore-permissions-error', { 
-          detail: { path } 
-        }));
-      }
-    });
+  subscribe(table: string, callback: (data: any[]) => void, filters?: { field: string, operator: string, value: any }[]) {
+    // Initial fetch
+    this.list(table, filters).then(callback);
+    
+    // Subscribe to changes
+    const subscription = supabase
+      .channel(`${table}_changes_${Math.random().toString(36).substring(7)}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: table }, async payload => {
+        // Re-fetch list to apply filters and get latest state
+        const data = await this.list(table, filters);
+        callback(data);
+      })
+      .subscribe();
+      
+    // Return unsubscribe function
+    return () => {
+      supabase.removeChannel(subscription);
+    };
   }
 };

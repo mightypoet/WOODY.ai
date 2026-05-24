@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { db } from './firebase';
 import { dbService, testConnection } from './services/dbService';
 import { googleSignIn, initAuth, logout as googleLogout } from './services/googleAuth';
 import { User, UserRole } from './types';
@@ -23,11 +22,6 @@ export default function App() {
 
   useEffect(() => {
     testConnection();
-    
-    const handleDbError = (e: any) => {
-      setDbError(`Your Firebase Project (woody-93acf) lacks permissions. Please go to console.firebase.google.com -> woody-93acf -> Firestore Database -> Rules and set them to allow read/write.`);
-    };
-    window.addEventListener('firestore-permissions-error', handleDbError);
     
     // Subscribe to auth state changes for Workspace integration
     const unsubscribe = initAuth(
@@ -67,7 +61,6 @@ export default function App() {
     return () => {
       // Unsubscribe wrapper
       unsubscribe();
-      window.removeEventListener('firestore-permissions-error', handleDbError);
     }
   }, []);
 
