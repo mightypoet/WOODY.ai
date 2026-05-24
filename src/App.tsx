@@ -32,26 +32,26 @@ export default function App() {
     
     // Subscribe to auth state changes for Workspace integration
     const unsubscribe = initAuth(
-      async (fUser, fToken) => {
+      async (authUser, _fToken) => {
         let userData;
         try {
           // If the get fails, it will fall through to null check
-          const rawData = await dbService.get('users', fUser.id);
+          const rawData = await dbService.get('users', authUser.id);
           userData = rawData as any;
         } catch (err: any) {
-          console.warn("Firestore fetch error:", err);
+          console.warn("Supabase fetch error:", err);
         }
         
         if (!userData) {
           userData = {
-            id: fUser.id,
-            email: fUser.email || '',
-            name: fUser.displayName || 'Unknown User',
+            id: authUser.id,
+            email: authUser.email || '',
+            name: authUser.displayName || 'Unknown User',
             role: 'admin',
             createdAt: new Date().toISOString()
           };
           try {
-            await dbService.set('users', fUser.id, userData);
+            await dbService.set('users', authUser.id, userData);
           } catch(e) {
             console.warn("Could not save to DB, using local default.");
           }
@@ -82,7 +82,7 @@ export default function App() {
         try {
           userData = await dbService.get('users', result.user.id) as any;
         } catch (err: any) {
-          console.warn("Firestore fetch error:", err);
+          console.warn("Supabase fetch error:", err);
         }
         
         if (!userData) {

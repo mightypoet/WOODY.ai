@@ -13,8 +13,40 @@ export const initAuth = (
   onAuthSuccess?: (user: AuthUser, token: string) => void,
   onAuthFailure?: () => void
 ) => {
+  let initialCheckDone = false;
+
+  // Manually check session first
+  supabase.auth.getSession().then(({ data: { session }, error }) => {
+    if (error) {
+      console.error("Session check error:", error);
+    }
+    
+    if (session?.user) {
+      cachedAccessToken = session.provider_token || session.access_token;
+      const user: AuthUser = {
+        id: session.user.id,
+        email: session.user.email || null,
+        displayName: session.user.user_metadata?.full_name || session.user.email?.split('@')[0] || null,
+      };
+      if (onAuthSuccess) {
+        onAuthSuccess(user, cachedAccessToken);
+      }
+    } else {
+      cachedAccessToken = null;
+      if (onAuthFailure) onAuthFailure();
+    }
+    initialCheckDone = true;
+  }).catch((err) => {
+    console.error("Failed to get session:", err);
+    if (!initialCheckDone && onAuthFailure) onAuthFailure();
+    initialCheckDone = true;
+  });
+
   const { data: { subscription } } = supabase.auth.onAuthStateChange(
     async (event, session) => {
+      // Skip the very first event if we already handled the explicit check
+      if (event === 'INITIAL_SESSION' && initialCheckDone) return;
+
       if (session?.user) {
         cachedAccessToken = session.provider_token || session.access_token;
         const user: AuthUser = {
