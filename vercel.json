@@ -1,9 +1,7 @@
 {
   "version": 2,
   "functions": {
-    "api/telegram-webhook.ts": {
-      "runtime": "vercel-node@latest"
-    }
+    "api/telegram-webhook.ts": {}
   },
   "rewrites": [
     {
