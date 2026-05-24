@@ -3,8 +3,6 @@ import path from "path";
 import dotenv from "dotenv";
 import fs from "fs";
 import { Resend } from 'resend';
-import { db } from "./src/firebase";
-import { collection, getDocs, query, where, documentId } from "firebase/firestore";
 
 const envPath = fs.existsSync('.env') ? '.env' : '.env.example';
 dotenv.config({ path: envPath });
