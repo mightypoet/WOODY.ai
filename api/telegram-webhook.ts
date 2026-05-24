@@ -1,5 +1,8 @@
-import { db } from "../src/firebase";
-import { collection, getDocs, query, where } from "firebase/firestore";
+import { createClient } from '@supabase/supabase-js';
+
+const supabaseUrl = process.env.VITE_SUPABASE_URL || 'https://huikxhnceywgofllfyle.supabase.co';
+const supabaseKey = process.env.VITE_SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_E_5daNHCs9gW8owaBD5Ddw_n9_sI6x1';
+const supabase = createClient(supabaseUrl, supabaseKey);
 
 export default async function handler(req: any, res: any) {
   if (req.method !== "POST") {
@@ -37,11 +40,11 @@ export default async function handler(req: any, res: any) {
     };
 
     if (text === "/projects") {
-      const projectsSnap = await getDocs(collection(db, "projects"));
-      const projects = projectsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() as any }));
+      const { data: projectsData, error: projError } = await supabase.from('projects').select('*');
+      const projects = projectsData || [];
       
-      const tasksSnap = await getDocs(collection(db, "tasks"));
-      const tasks = tasksSnap.docs.map(doc => ({ id: doc.id, ...doc.data() as any }));
+      const { data: tasksData, error: taskError } = await supabase.from('tasks').select('*');
+      const tasks = tasksData || [];
 
       let msg = "📊 *Active Client Projects*\n\n";
       if (projects.length === 0) {
@@ -54,8 +57,8 @@ export default async function handler(req: any, res: any) {
           const percentage = total === 0 ? 0 : Math.round((completed / total) * 100);
           const outstanding = total - completed;
 
-          msg += `🔹 *${p.name}*\n`;
-          msg += `   Status: ${p.status}\n`;
+          msg += `🔹 *${p.name || 'Unnamed Project'}*\n`;
+          msg += `   Status: ${p.status || 'Unknown'}\n`;
           msg += `   Completion: ${percentage}% [${completed}/${total}]\n`;
           msg += `   Outstanding Tasks: ${outstanding}\n\n`;
         });
@@ -63,8 +66,8 @@ export default async function handler(req: any, res: any) {
       await reply(msg);
 
     } else if (text === "/payments") {
-      const paymentsSnap = await getDocs(collection(db, "payments"));
-      const payments = paymentsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() as any }));
+      const { data: paymentsData, error } = await supabase.from('payments').select('*');
+      const payments = paymentsData || [];
       
       let msg = "💰 *Recent Financial Tracking*\n\n";
       let totalPending = 0;
@@ -73,13 +76,14 @@ export default async function handler(req: any, res: any) {
         msg += "No payment records found.";
       } else {
         payments.forEach(p => {
-          const balance = p.totalAmount - (p.paidAmount || 0);
+          const balance = (p.totalAmount || 0) - (p.paidAmount || 0);
           if (balance > 0) totalPending += balance;
-          msg += `💵 *Amount:* $${p.totalAmount} (Paid: $${p.paidAmount || 0})\n`;
-          msg += `   Status: ${p.status}\n`;
-          msg += `   Due: ${p.dueDate}\n\n`;
+          msg += `💵 *Amount:* $${p.totalAmount || 0} (Paid: $${p.paidAmount || 0})\n`;
+          msg += `   Status: ${p.status || 'Unknown'}\n`;
+          if (p.dueDate) msg += `   Due: ${p.dueDate}\n`;
+          msg += `\n`;
         });
-        msg += `🔥 *Total Pending Balance:* $${totalPending}`;
+        msg += `🔥 *Total Pending Balance:* $${totalPending.toFixed(2)}`;
       }
       await reply(msg);
 
@@ -89,27 +93,28 @@ export default async function handler(req: any, res: any) {
         await reply("⚠️ Please provide a client name. Example: `/tasks client1`");
         return res.status(200).send("OK");
       }
+      
       const clientNameQuery = parts.slice(1).join(" ").toLowerCase();
       
-      const clientsSnap = await getDocs(collection(db, "clients"));
-      const clients = clientsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() as any }));
-      const foundClient = clients.find(c => c.name.toLowerCase().includes(clientNameQuery));
+      const { data: clientsData } = await supabase.from('clients').select('*');
+      const clients = clientsData || [];
+      const foundClient = clients.find(c => c.name && c.name.toLowerCase().includes(clientNameQuery));
       
       if (!foundClient) {
         await reply(`⚠️ No client found matching "${parts.slice(1).join(" ")}"`);
         return res.status(200).send("OK");
       }
 
-      const projectsSnap = await getDocs(query(collection(db, "projects"), where("clientId", "==", foundClient.id)));
-      const projectIds = projectsSnap.docs.map(doc => doc.id);
+      const { data: projectsData } = await supabase.from('projects').select('id').eq('clientId', foundClient.id);
+      const projectIds = projectsData ? projectsData.map(doc => doc.id) : [];
 
       if (projectIds.length === 0) {
         await reply(`📋 *Tasks for ${foundClient.name}*\n\nNo active projects for this client.`);
         return res.status(200).send("OK");
       }
 
-      const tasksSnap = await getDocs(query(collection(db, "tasks"), where("projectId", "in", projectIds)));
-      const tasks = tasksSnap.docs.map(doc => ({ id: doc.id, ...doc.data() as any }));
+      const { data: tasksData } = await supabase.from('tasks').select('*').in('projectId', projectIds);
+      const tasks = tasksData || [];
       
       let msg = `📋 *Tasks for ${foundClient.name}*\n\n`;
       const pendingTasks = tasks.filter(t => t.status !== "completed");
@@ -119,7 +124,7 @@ export default async function handler(req: any, res: any) {
       } else {
         pendingTasks.forEach(t => {
           msg += `🔸 *${t.title}*\n`;
-          msg += `   Status: ${t.status}\n`;
+          msg += `   Status: ${t.status || 'Unknown'}\n`;
           if (t.deadline) msg += `   Due: ${new Date(t.deadline).toLocaleDateString()}\n`;
           msg += "\n";
         });
