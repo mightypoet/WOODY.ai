@@ -72,8 +72,9 @@ export default async function handler(req: any, res: any) {
         responseText += "No financial records found.";
       } else {
         payments.forEach(p => {
-          if (p.status !== 'paid') {
-            responseText += `• *${p.client_name}*: ₹${p.amount_due || 0}\n`;
+          const currentStatus = (p.status || '').toLowerCase().trim();
+          if (currentStatus !== 'paid') {
+            responseText += `• *${p.client_name}*: ₹${p.amount_due || 0} (_${p.status || 'pending'}_)\n`;
             totalPending += Number(p.amount_due || 0);
           }
         });
