@@ -1,9 +1,9 @@
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = 'https://huikxhnceywgofllfyle.supabase.co';
-const supabaseKey = 'YOUR_SUPABASE_ANON_KEY';
-const ALLOWED_CHAT_ID = '7031772261';
-const token = '8308910231:AAGAo1WdPrbqzsLDkqgd2rdA5g4SKRwx9z4';
+const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || 'https://huikxhnceywgofllfyle.supabase.co';
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_E_5daNHCs9gW8owaBD5Ddw_n9_sI6x1';
+const ALLOWED_CHAT_ID = process.env.TELEGRAM_CHAT_ID || process.env.VITE_TELEGRAM_CHAT_ID || '7031772261';
+const token = process.env.TELEGRAM_BOT_TOKEN || process.env.VITE_TELEGRAM_BOT_TOKEN || '8308910231:AAGAo1WdPrbqzsLDkqgd2rdA5g4SKRwx9z4';
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 export default async function handler(req: any, res: any) {
