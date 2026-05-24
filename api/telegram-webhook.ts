@@ -21,7 +21,7 @@ export default async function handler(req: any, res: any) {
     // Identity Security Gate
     const ALLOWED_CHAT_ID = process.env.TELEGRAM_CHAT_ID || process.env.VITE_TELEGRAM_CHAT_ID || '7031772261';
     if (String(chatId) !== String(ALLOWED_CHAT_ID)) {
-      return res.status(403).send("Forbidden");
+      return res.status(403).send("Forbidden Identification Mismatch");
     }
 
     const token = process.env.TELEGRAM_BOT_TOKEN || process.env.VITE_TELEGRAM_BOT_TOKEN || '8308910231:AAGAo1WdPrbqzsLDkqgd2rdA5g4SKRwx9z4';
