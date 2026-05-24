@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { dbService, testConnection } from './services/dbService';
 import { googleSignIn, initAuth, logout as googleLogout } from './services/googleAuth';
 import { User, UserRole } from './types';
-import { Layout, MessageSquare, LayoutDashboard, Users, Briefcase, CreditCard, LogOut, Loader2, Send, Building2, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { Layout, MessageSquare, LayoutDashboard, Users, Briefcase, CreditCard, LogOut, Loader2, Send, Building2, AlertCircle, CheckCircle2, Calendar } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import ErrorBoundary from './components/ErrorBoundary';
 import ChatInterface from './components/ChatInterface';
@@ -12,13 +12,14 @@ import ProjectBoard from './components/ProjectBoard';
 import PaymentTracker from './components/PaymentTracker';
 import TeamManagement from './components/TeamManagement';
 import Todos from './components/Todos';
+import CalendarView from './components/CalendarView';
 
 export default function App() {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [authError, setAuthError] = useState<string | null>(null);
   const [dbError, setDbError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'chat' | 'dashboard' | 'clients' | 'projects' | 'payments' | 'team' | 'todos'>('chat');
+  const [activeTab, setActiveTab] = useState<'chat' | 'dashboard' | 'calendar' | 'clients' | 'projects' | 'payments' | 'team' | 'todos'>('chat');
   const [supabaseConfigError, setSupabaseConfigError] = useState<boolean>(false);
 
   useEffect(() => {
@@ -175,6 +176,7 @@ export default function App() {
   const tabs = [
     { id: 'chat', label: 'Chat', icon: MessageSquare },
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+    { id: 'calendar', label: 'Calendar', icon: Calendar },
     { id: 'clients', label: 'Clients', icon: Building2 },
     { id: 'projects', label: 'Projects', icon: Briefcase },
     { id: 'payments', label: 'Payments', icon: CreditCard },
@@ -268,6 +270,7 @@ export default function App() {
             >
               {activeTab === 'chat' && <ChatInterface user={user} />}
               {activeTab === 'dashboard' && <Dashboard user={user} />}
+              {activeTab === 'calendar' && <CalendarView />}
               {activeTab === 'clients' && <ClientList user={user} />}
               {activeTab === 'projects' && <ProjectBoard user={user} />}
               {activeTab === 'payments' && <PaymentTracker user={user} />}

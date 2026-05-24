@@ -12,6 +12,7 @@ export interface Client {
   name: string;
   brand: string;
   contact: string;
+  contactNumber?: string;
   services: string[];
   paymentTerms: string;
   createdAt: string;

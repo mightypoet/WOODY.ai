@@ -13,7 +13,27 @@ export const dbService = {
         .select()
         .single();
       
-      if (error) throw error;
+      if (error) {
+        if (error.code === 'PGRST204' || error.message.includes('does not exist')) {
+          // If a column does not exist, try removing transient fields
+          console.warn(`Column missing in table ${table}, trying fallback without transient fields...`, error);
+          const fallbackData = { ...data };
+          delete fallbackData.contactNumber;
+          delete fallbackData.social_media_calendar_link;
+          delete fallbackData.annotation;
+          delete fallbackData.socialMediaSheetUrl;
+          
+          const { data: retryData, error: retryError } = await supabase
+            .from(table)
+            .insert([{ ...fallbackData, createdAt: new Date().toISOString() }])
+            .select()
+            .single();
+            
+          if (retryError) throw retryError;
+          return retryData?.id;
+        }
+        throw error;
+      }
       return insertedData?.id;
     } catch (error) {
       console.error(`Supabase create error in ${table}:`, error);
@@ -27,7 +47,24 @@ export const dbService = {
         .from(table)
         .upsert([{ ...data, id, updatedAt: new Date().toISOString() }]);
       
-      if (error) throw error;
+      if (error) {
+        if (error.code === 'PGRST204' || error.message.includes('does not exist')) {
+          console.warn(`Column missing in table ${table}, trying fallback without transient fields...`, error);
+          const fallbackData = { ...data };
+          delete fallbackData.contactNumber;
+          delete fallbackData.socialMediaSheetUrl;
+          delete fallbackData.social_media_calendar_link;
+          delete fallbackData.annotation;
+          
+          const { error: retryError } = await supabase
+            .from(table)
+            .upsert([{ ...fallbackData, id, updatedAt: new Date().toISOString() }]);
+            
+          if (retryError) throw retryError;
+          return;
+        }
+        throw error;
+      }
     } catch (error) {
       console.error(`Supabase set error in ${table}/${id}:`, error);
       throw error;
@@ -41,7 +78,25 @@ export const dbService = {
         .update(data)
         .eq('id', id);
       
-      if (error) throw error;
+      if (error) {
+        if (error.code === 'PGRST204' || error.message.includes('does not exist')) {
+          console.warn(`Column missing in table ${table}, trying fallback without transient fields...`, error);
+          const fallbackData = { ...data };
+          delete fallbackData.contactNumber;
+          delete fallbackData.socialMediaSheetUrl;
+          delete fallbackData.social_media_calendar_link;
+          delete fallbackData.annotation;
+          
+          const { error: retryError } = await supabase
+            .from(table)
+            .update(fallbackData)
+            .eq('id', id);
+            
+          if (retryError) throw retryError;
+          return;
+        }
+        throw error;
+      }
     } catch (error) {
       console.error(`Supabase update error in ${table}/${id}:`, error);
       throw error;

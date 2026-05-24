@@ -301,9 +301,15 @@ export default function ClientPortal({
             <div className="space-y-4">
               <div>
                 <p className="text-xs text-zinc-500 uppercase tracking-widest font-mono">
-                  Contact
+                  Contact (Email)
                 </p>
                 <p className="text-sm mt-1">{client.contact || "N/A"}</p>
+              </div>
+              <div>
+                <p className="text-xs text-zinc-500 uppercase tracking-widest font-mono">
+                  Contact Number
+                </p>
+                <p className="text-sm mt-1">{client.contactNumber || "N/A"}</p>
               </div>
               <div>
                 <p className="text-xs text-zinc-500 uppercase tracking-widest font-mono">

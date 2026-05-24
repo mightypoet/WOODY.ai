@@ -27,13 +27,20 @@ export default function ClientList({ user }: { user: User }) {
     name: "",
     brand: "",
     contact: "",
+    contactNumber: "",
     services: "",
     paymentTerms: "",
+    socialMediaSheetUrl: "",
   });
 
   useEffect(() => {
     const unsub = dbService.subscribe("clients", (data) => {
-      setClients(data);
+      // Map social_media_calendar_link to socialMediaSheetUrl if returned from DB
+      const mappedData = data.map((c: any) => ({
+        ...c,
+        socialMediaSheetUrl: c.social_media_calendar_link || c.socialMediaSheetUrl
+      }));
+      setClients(mappedData);
       setLoading(false);
     });
     return () => unsub();
@@ -45,6 +52,7 @@ export default function ClientList({ user }: { user: User }) {
 
     await dbService.create("clients", {
       ...newClient,
+      social_media_calendar_link: newClient.socialMediaSheetUrl,
       services: newClient.services
         .split(",")
         .map((s) => s.trim())
@@ -56,8 +64,10 @@ export default function ClientList({ user }: { user: User }) {
       name: "",
       brand: "",
       contact: "",
+      contactNumber: "",
       services: "",
       paymentTerms: "",
+      socialMediaSheetUrl: "",
     });
     setIsModalOpen(false);
   };
@@ -160,7 +170,7 @@ export default function ClientList({ user }: { user: User }) {
                   </div>
                   <div className="flex items-center gap-3 text-sm text-zinc-400">
                     <Phone size={14} />
-                    <span>{client.contact || "No phone provided"}</span>
+                    <span>{client.contactNumber || "No phone provided"}</span>
                   </div>
                 </div>
 
@@ -247,6 +257,20 @@ export default function ClientList({ user }: { user: User }) {
           </div>
           <div className="space-y-1">
             <label className="text-xs text-zinc-500 uppercase font-mono tracking-widest">
+              Contact Number
+            </label>
+            <input
+              type="text"
+              value={newClient.contactNumber}
+              onChange={(e) =>
+                setNewClient({ ...newClient, contactNumber: e.target.value })
+              }
+              className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-zinc-500 transition-all"
+              placeholder="e.g. +1 234 567 8900"
+            />
+          </div>
+          <div className="space-y-1">
+            <label className="text-xs text-zinc-500 uppercase font-mono tracking-widest">
               Services (comma separated)
             </label>
             <input
@@ -271,6 +295,20 @@ export default function ClientList({ user }: { user: User }) {
               }
               className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-zinc-500 transition-all"
               placeholder="e.g. Net 30"
+            />
+          </div>
+          <div className="space-y-1">
+            <label className="text-xs text-zinc-500 uppercase font-mono tracking-widest">
+              Social Media Calendar Link
+            </label>
+            <input
+              type="url"
+              value={newClient.socialMediaSheetUrl}
+              onChange={(e) =>
+                setNewClient({ ...newClient, socialMediaSheetUrl: e.target.value })
+              }
+              className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-zinc-500 transition-all"
+              placeholder="Paste shared Google Sheets or calendar URL"
             />
           </div>
           <button
