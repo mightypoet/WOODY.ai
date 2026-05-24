@@ -42,8 +42,8 @@ export default function ProjectBoard({ user }: { user: User }) {
   const projectTasks = tasks.filter(t => t.projectId === selectedProjectId);
   const columns = [
     { id: 'todo', label: 'To Do', icon: Clock, color: 'text-zinc-500' },
-    { id: 'in_progress', label: 'In Progress', icon: AlertCircle, color: 'text-orange-500' },
-    { id: 'completed', label: 'Completed', icon: CheckCircle2, color: 'text-emerald-500' },
+    { id: 'in_progress', label: 'In Progress', icon: AlertCircle, color: 'text-zinc-300' },
+    { id: 'completed', label: 'Completed', icon: CheckCircle2, color: 'text-white' },
   ];
 
   const updateTaskStatus = async (taskId: string, newStatus: string) => {
@@ -157,13 +157,13 @@ export default function ProjectBoard({ user }: { user: User }) {
                         <div className="flex items-center gap-2">
                            <div className={cn(
                             "w-2 h-2 rounded-full",
-                            task.priority === 'high' ? "bg-red-500" :
-                            task.priority === 'medium' ? "bg-orange-500" :
-                            "bg-emerald-500"
+                            task.priority === 'high' ? "bg-white" :
+                            task.priority === 'medium' ? "bg-zinc-400" :
+                            "bg-zinc-600"
                           )} />
                           <button 
                             onClick={(e) => handleDeleteTask(task.id, e)}
-                            className="text-zinc-700 hover:text-red-500 transition-colors p-1"
+                            className="text-zinc-700 hover:text-white transition-colors p-1"
                           >
                             <Trash2 size={12} />
                           </button>

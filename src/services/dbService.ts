@@ -58,7 +58,12 @@ function handleFirestoreError(error: unknown, operationType: OperationType, path
     path
   }
   console.error('Firestore Error: ', JSON.stringify(errInfo));
-  throw new Error(JSON.stringify(errInfo));
+  
+  if (errInfo.error.includes('Missing or insufficient permissions') || errInfo.error.includes('the client is offline')) {
+    window.dispatchEvent(new CustomEvent('firestore-permissions-error', { 
+      detail: { path } 
+    }));
+  }
 }
 
 export async function testConnection() {
@@ -113,6 +118,7 @@ export const dbService = {
       return docSnap.exists() ? { id: docSnap.id, ...docSnap.data() } : null;
     } catch (error) {
       handleFirestoreError(error, OperationType.GET, `${path}/${id}`);
+      return null;
     }
   },
 
@@ -128,6 +134,7 @@ export const dbService = {
       return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
     } catch (error) {
       handleFirestoreError(error, OperationType.LIST, path);
+      return [];
     }
   },
 
@@ -149,7 +156,12 @@ export const dbService = {
     return onSnapshot(q, (snapshot) => {
       callback(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
     }, (error) => {
-      handleFirestoreError(error, OperationType.LIST, path);
+      console.error('Firestore Subscribe Error:', error);
+      if (error instanceof Error && error.message.includes('Missing or insufficient permissions')) {
+        window.dispatchEvent(new CustomEvent('firestore-permissions-error', { 
+          detail: { path } 
+        }));
+      }
     });
   }
 };

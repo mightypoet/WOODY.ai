@@ -104,7 +104,7 @@ export default function TeamManagement({ user }: { user: User }) {
                       <div className="space-y-1">
                         <h3 className="font-bold text-lg">{member.name}</h3>
                         <div className="flex items-center gap-2 text-xs text-zinc-500 uppercase tracking-widest font-mono">
-                          <Shield size={12} className={member.role === 'admin' ? 'text-amber-500' : 'text-zinc-500'} />
+                          <Shield size={12} className={member.role === 'admin' ? 'text-white' : 'text-zinc-500'} />
                           {member.role.replace('_', ' ')}
                         </div>
                       </div>
@@ -112,7 +112,7 @@ export default function TeamManagement({ user }: { user: User }) {
                     {isAdmin && member.uid !== user.uid && (
                       <button 
                         onClick={() => handleDeleteMember(member.uid || member.email)}
-                        className="text-zinc-600 hover:text-red-500 transition-colors p-1 opacity-0 group-hover:opacity-100"
+                        className="text-zinc-600 hover:text-white transition-colors p-1 opacity-0 group-hover:opacity-100"
                       >
                         <Trash2 size={16} />
                       </button>
@@ -129,7 +129,7 @@ export default function TeamManagement({ user }: { user: User }) {
                   <div className="pt-4 border-t border-zinc-800">
                     <div className="flex items-center justify-between text-[10px] text-zinc-500 uppercase tracking-widest">
                       <span>Status</span>
-                      <span className="text-emerald-500">Active</span>
+                      <span className="text-zinc-400">Active</span>
                     </div>
                   </div>
                 </motion.div>

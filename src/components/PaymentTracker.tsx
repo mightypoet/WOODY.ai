@@ -88,11 +88,11 @@ export default function PaymentTracker({ user }: { user: User }) {
         </div>
         <div className="bg-zinc-900 border border-zinc-800 p-6 rounded-2xl space-y-2">
           <p className="text-xs text-zinc-500 uppercase font-mono tracking-widest">Total Paid</p>
-          <p className="text-2xl font-bold text-emerald-500">₹{totals.paid.toLocaleString()}</p>
+          <p className="text-2xl font-bold text-white">₹{totals.paid.toLocaleString()}</p>
         </div>
         <div className="bg-zinc-900 border border-zinc-800 p-6 rounded-2xl space-y-2">
           <p className="text-xs text-zinc-500 uppercase font-mono tracking-widest">Total Pending</p>
-          <p className="text-2xl font-bold text-orange-500">₹{totals.pending.toLocaleString()}</p>
+          <p className="text-2xl font-bold text-zinc-300">₹{totals.pending.toLocaleString()}</p>
         </div>
       </div>
 
@@ -144,7 +144,7 @@ export default function PaymentTracker({ user }: { user: User }) {
                       <p className="text-sm font-mono">₹{payment.totalAmount.toLocaleString()}</p>
                     </td>
                     <td className="p-4">
-                      <p className="text-sm font-mono text-emerald-500">₹{payment.paidAmount.toLocaleString()}</p>
+                      <p className="text-sm font-mono text-zinc-400">₹{payment.paidAmount.toLocaleString()}</p>
                     </td>
                     <td className="p-4">
                       <p className="text-xs text-zinc-500 font-mono">{safeFormat(payment.dueDate)}</p>
@@ -152,9 +152,9 @@ export default function PaymentTracker({ user }: { user: User }) {
                     <td className="p-4">
                       <div className={cn(
                         "inline-flex items-center gap-1.5 px-2 py-1 rounded text-[10px] font-bold uppercase tracking-tighter",
-                        payment.status === 'paid' ? "bg-emerald-500/10 text-emerald-500" :
-                        payment.status === 'overdue' ? "bg-red-500/10 text-red-500" :
-                        "bg-blue-500/10 text-blue-500"
+                        payment.status === 'paid' ? "bg-transparent text-zinc-500 border border-zinc-700" :
+                        payment.status === 'overdue' ? "bg-white/10 text-white" :
+                        "bg-white/5 text-zinc-300"
                       )}>
                         {payment.status === 'paid' ? <CheckCircle2 size={10} /> : 
                          payment.status === 'overdue' ? <AlertCircle size={10} /> : 
@@ -166,7 +166,7 @@ export default function PaymentTracker({ user }: { user: User }) {
                       <div className="flex items-center justify-end gap-2">
                         <button 
                           onClick={() => handleDeletePayment(payment.id)}
-                          className="text-zinc-600 hover:text-red-500 transition-colors p-1"
+                          className="text-zinc-600 hover:text-white transition-colors p-1"
                         >
                           <Trash2 size={16} />
                         </button>

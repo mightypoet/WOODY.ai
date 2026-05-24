@@ -30,6 +30,12 @@ Available Tools:
   "body": "string"
 }
 
+4. SYNC_SOCIAL_MEDIA_SHEET
+{
+  "clientName": "string",
+  "sheetUrl": "string"
+}
+
 If an action is requested, output the exact JSON structure required for the frontend to execute the function. Always verify you have the correct variables (like email addresses and timestamps) before executing.
 
 Always return:

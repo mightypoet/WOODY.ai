@@ -572,6 +572,92 @@ export default function ChatInterface({ user }: { user: User }) {
             );
             break;
           }
+
+          case "SYNC_SOCIAL_MEDIA_SHEET": {
+            const clients = (await dbService.list("clients")) as any[];
+            const client = clients?.find(
+              (c) =>
+                c.name.toLowerCase() === action.payload.clientName.toLowerCase() ||
+                c.brand.toLowerCase() === action.payload.clientName.toLowerCase(),
+            );
+            if (!client) {
+              results.push(`Error: Client "${action.payload.clientName}" not found.`);
+              break;
+            }
+
+            const match = action.payload.sheetUrl.match(/\/d\/([a-zA-Z0-9-_]+)/);
+            if (!match) {
+              results.push(`Error: Invalid Google Sheet URL provided for syncing.`);
+              break;
+            }
+            const spreadsheetId = match[1];
+
+            await dbService.update("clients", client.id, { socialMediaSheetUrl: action.payload.sheetUrl });
+
+            let projects = (await dbService.list("projects")) as any[];
+            let projectId = projects.find(p => p.clientId === client.id && p.name.includes('Social Media'))?.id || projects.find(p => p.clientId === client.id)?.id;
+            
+            if (!projectId) {
+              projectId = await dbService.create("projects", {
+                clientId: client.id,
+                name: `${client.name} - Social Media Calendar`,
+                status: 'active',
+                createdAt: now
+              });
+            }
+
+            const sheetName = await sheetsService.getFirstSheetName(spreadsheetId);
+            const res = await sheetsService.getSpreadsheetValues(spreadsheetId, `${sheetName}!A2:C`);
+            const rows = res.values || [];
+            let syncCount = 0;
+
+            const existingTasks = (await dbService.list("tasks")) as any[];
+
+            for (const row of rows) {
+              const title = row[0];
+              const dateStr = row[1];
+              const notes = row[2] || '';
+              if (!title) continue;
+
+              let deadline = '';
+              if (dateStr) {
+                const d = new Date(dateStr);
+                if (!isNaN(d.getTime())) deadline = d.toISOString();
+              }
+
+              const exists = existingTasks.some(t => t.projectId === projectId && t.title === title);
+              if (!exists) {
+                await dbService.create("tasks", {
+                  projectId,
+                  title,
+                  description: notes,
+                  status: 'todo',
+                  priority: 'medium',
+                  assigneeId: user.uid,
+                  deadline,
+                  createdAt: now
+                });
+                
+                if (deadline) {
+                  try {
+                    const startDate = new Date(deadline);
+                    const endDate = new Date(startDate.getTime() + 60 * 60 * 1000);
+                    await calendarService.createEvent(
+                      `Social Media: ${title} (${client.name})`,
+                      notes,
+                      startDate.toISOString(),
+                      endDate.toISOString()
+                    );
+                  } catch (err) {
+                    console.error("Calendar event failed:", err);
+                  }
+                }
+                syncCount++;
+              }
+            }
+            results.push(`Synced ${syncCount} events from Social Media Sheet to ${client.name}'s calendar and tasks.`);
+            break;
+          }
         }
       } catch (e) {
         console.error("Action execution failed:", e);
@@ -709,14 +795,14 @@ export default function ChatInterface({ user }: { user: User }) {
                   )}
 
                   {message.status === "success" && (
-                    <div className="mt-4 flex items-center gap-2 text-emerald-400 font-medium px-2 py-1.5 rounded-lg bg-emerald-500/10 w-fit">
+                    <div className="mt-4 flex items-center gap-2 text-white font-medium px-2 py-1.5 rounded-lg bg-white/10 w-fit">
                       <CheckCircle2 size={14} />
                       Actions completed
                     </div>
                   )}
 
                   {message.status === "error" && (
-                    <div className="mt-4 flex items-center gap-2 text-rose-400 font-medium px-2 py-1.5 rounded-lg bg-rose-500/10 w-fit">
+                    <div className="mt-4 flex items-center gap-2 text-zinc-300 font-medium px-2 py-1.5 rounded-lg bg-white/10 w-fit">
                       <AlertCircle size={14} />
                       Execution failed
                     </div>

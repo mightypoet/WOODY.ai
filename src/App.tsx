@@ -18,10 +18,16 @@ export default function App() {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [authError, setAuthError] = useState<string | null>(null);
+  const [dbError, setDbError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'chat' | 'dashboard' | 'clients' | 'projects' | 'payments' | 'team' | 'todos'>('chat');
 
   useEffect(() => {
     testConnection();
+    
+    const handleDbError = (e: any) => {
+      setDbError(`Your Firebase Project (woody-93acf) lacks permissions. Please go to console.firebase.google.com -> woody-93acf -> Firestore Database -> Rules and set them to allow read/write.`);
+    };
+    window.addEventListener('firestore-permissions-error', handleDbError);
     
     // Subscribe to auth state changes for Workspace integration
     const unsubscribe = initAuth(
@@ -61,6 +67,7 @@ export default function App() {
     return () => {
       // Unsubscribe wrapper
       unsubscribe();
+      window.removeEventListener('firestore-permissions-error', handleDbError);
     }
   }, []);
 
@@ -133,7 +140,7 @@ export default function App() {
           </div>
           
           {authError && (
-            <div className="bg-rose-500/10 border border-rose-500/20 text-rose-400 p-4 rounded-xl text-sm text-left w-full mt-4">
+            <div className="bg-white/10 border border-white/20 text-white p-4 rounded-xl text-sm text-left w-full mt-4">
               <div className="flex items-start gap-2">
                 <AlertCircle size={16} className="mt-0.5 shrink-0" />
                 <p>{authError}</p>
@@ -167,19 +174,19 @@ export default function App() {
 
   return (
     <ErrorBoundary>
-      <div className="h-screen w-screen flex bg-zinc-950 text-white overflow-hidden relative selection:bg-blue-500/30">
+      <div className="h-screen w-screen flex bg-zinc-950 text-white overflow-hidden relative selection:bg-white/30">
         
         {/* DeepMind-style subtle ambient background layers */}
         <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none">
-          <div className="absolute -top-[20%] -left-[10%] w-[50%] h-[50%] rounded-full bg-blue-600/10 blur-[120px]" />
-          <div className="absolute top-[20%] -right-[10%] w-[40%] h-[60%] rounded-full bg-purple-600/10 blur-[120px]" />
+          <div className="absolute -top-[20%] -left-[10%] w-[50%] h-[50%] rounded-full bg-white/5 blur-[120px]" />
+          <div className="absolute top-[20%] -right-[10%] w-[40%] h-[60%] rounded-full bg-white/5 blur-[120px]" />
         </div>
 
         {/* Sidebar */}
         <aside className="w-64 border-r border-white/5 bg-zinc-950/50 backdrop-blur-3xl flex flex-col p-4 relative z-10">
           <div className="mb-10 px-2 mt-4 flex items-center gap-3">
-            <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-blue-600 to-purple-600 flex items-center justify-center shadow-[0_0_15px_rgba(59,130,246,0.5)]">
-              <span className="font-bold text-white tracking-tighter">W</span>
+            <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center shadow-[0_0_15px_rgba(255,255,255,0.2)]">
+              <span className="font-bold text-black tracking-tighter">W</span>
             </div>
             <div>
               <h1 className="text-xl font-bold tracking-tight">WOODY</h1>
@@ -201,10 +208,10 @@ export default function App() {
                 {activeTab === tab.id && (
                   <motion.div 
                     layoutId="activeTabIndicator"
-                    className="absolute inset-0 rounded-xl bg-gradient-to-r from-blue-500/10 to-transparent border border-blue-500/20"
+                    className="absolute inset-0 rounded-xl bg-white/10 border border-white/20"
                   />
                 )}
-                <tab.icon size={18} className={`relative z-10 ${activeTab === tab.id ? 'text-blue-400' : 'group-hover:text-blue-400 transition-colors'}`} />
+                <tab.icon size={18} className={`relative z-10 ${activeTab === tab.id ? 'text-white' : 'group-hover:text-white transition-colors'}`} />
                 <span className="text-sm font-medium relative z-10">{tab.label}</span>
               </button>
             ))}
@@ -215,12 +222,12 @@ export default function App() {
               <img src={`https://ui-avatars.com/api/?name=${user.name}&background=random`} alt={user.name} className="w-8 h-8 rounded-full object-cover shadow-[0_0_10px_rgba(255,255,255,0.1)]" />
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium truncate">{user.name}</p>
-                <p className="text-[10px] text-blue-400 uppercase font-mono">{user.role.replace('_', ' ')}</p>
+                <p className="text-[10px] text-zinc-400 uppercase font-mono">{user.role.replace('_', ' ')}</p>
               </div>
             </div>
             <button 
               onClick={handleLogout}
-              className="w-full flex items-center gap-3 px-3 py-2.5 text-zinc-400 hover:text-rose-400 hover:bg-rose-500/10 rounded-xl transition-all"
+              className="w-full flex items-center gap-3 px-3 py-2.5 text-zinc-400 hover:text-white hover:bg-white/10 rounded-xl transition-all"
             >
               <LogOut size={18} />
               <span className="text-sm font-medium">Log out</span>
@@ -229,11 +236,21 @@ export default function App() {
         </aside>
 
         {/* Main Content */}
-        <main className="flex-1 relative z-10 overflow-hidden bg-zinc-950/80 backdrop-blur-xl rounded-tl-3xl border-t border-l border-white/5 shadow-2xl">
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={activeTab}
-              initial={{ opacity: 0, scale: 0.98, filter: 'blur(4px)' }}
+        <main className="flex-1 relative z-10 overflow-hidden bg-zinc-950/80 backdrop-blur-xl rounded-tl-3xl border-t border-l border-white/5 shadow-2xl flex flex-col">
+          {dbError && (
+            <div className="bg-red-500/10 border-b border-red-500/20 text-red-400 p-3 px-6 text-sm flex items-center justify-between shrink-0">
+              <div className="flex items-center gap-2 font-medium">
+                <AlertCircle size={16} />
+                <p>{dbError}</p>
+              </div>
+              <button onClick={() => setDbError(null)} className="text-red-400 hover:text-red-300 px-2 py-1 bg-red-500/10 rounded-lg text-xs font-bold uppercase tracking-wider">Dismiss</button>
+            </div>
+          )}
+          <div className="flex-1 overflow-hidden relative">
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={activeTab}
+                initial={{ opacity: 0, scale: 0.98, filter: 'blur(4px)' }}
               animate={{ opacity: 1, scale: 1, filter: 'blur(0px)' }}
               exit={{ opacity: 0, scale: 1.02, filter: 'blur(4px)' }}
               transition={{ duration: 0.3, ease: 'easeOut' }}
@@ -248,6 +265,7 @@ export default function App() {
               {activeTab === 'todos' && <Todos />}
             </motion.div>
           </AnimatePresence>
+          </div>
         </main>
       </div>
     </ErrorBoundary>

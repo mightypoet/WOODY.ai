@@ -1,13 +1,11 @@
 import { getAccessToken } from './googleAuth';
 
-const GOOGLE_API_BASE = 'https://www.googleapis.com';
-
 // Generic fetcher with Auth
-async function fetchGoogleAPI(endpoint: string, options: RequestInit = {}) {
+async function fetchGoogleAPI(url: string, options: RequestInit = {}) {
   const token = await getAccessToken();
   if (!token) throw new Error("No Google access token available");
 
-  const res = await fetch(`${GOOGLE_API_BASE}${endpoint}`, {
+  const res = await fetch(url, {
     ...options,
     headers: {
       'Authorization': `Bearer ${token}`,
@@ -19,7 +17,7 @@ async function fetchGoogleAPI(endpoint: string, options: RequestInit = {}) {
   if (!res.ok) {
     const errorBody = await res.text();
     console.error("Google API Error:", res.status, res.statusText, errorBody);
-    throw new Error(`Google API request failed: ${res.status} ${res.statusText}`);
+    throw new Error(`Google API request failed: ${res.status} ${res.statusText} - ${errorBody}`);
   }
 
   // Some operations (like DELETE) may return empty responses
@@ -33,7 +31,7 @@ async function fetchGoogleAPI(endpoint: string, options: RequestInit = {}) {
 export const calendarService = {
   getUpcomingEvents: async (maxResults = 10) => {
     const timeMin = new Date().toISOString();
-    return fetchGoogleAPI(`/calendar/v3/calendars/primary/events?timeMin=${encodeURIComponent(timeMin)}&maxResults=${maxResults}&orderBy=startTime&singleEvents=true`);
+    return fetchGoogleAPI(`https://www.googleapis.com/calendar/v3/calendars/primary/events?timeMin=${encodeURIComponent(timeMin)}&maxResults=${maxResults}&orderBy=startTime&singleEvents=true`);
   },
   createEvent: async (summary: string, description: string, startTimeIso: string, endTimeIso: string) => {
     const event = {
@@ -42,7 +40,7 @@ export const calendarService = {
       start: { dateTime: startTimeIso },
       end: { dateTime: endTimeIso },
     };
-    return fetchGoogleAPI('/calendar/v3/calendars/primary/events', {
+    return fetchGoogleAPI('https://www.googleapis.com/calendar/v3/calendars/primary/events', {
       method: 'POST',
       body: JSON.stringify(event)
     });
@@ -54,7 +52,7 @@ export const calendarService = {
 // ==========================
 export const meetService = {
   createMeetingSpace: async () => {
-    return fetchGoogleAPI('/v2/spaces', {
+    return fetchGoogleAPI('https://meet.googleapis.com/v2/spaces', {
       method: 'POST',
       body: JSON.stringify({}) // Basic empty payload
     });
@@ -66,7 +64,7 @@ export const meetService = {
 // ==========================
 export const gmailService = {
   getRecentEmails: async (maxResults = 10) => {
-    return fetchGoogleAPI(`/gmail/v1/users/me/messages?maxResults=${maxResults}`);
+    return fetchGoogleAPI(`https://gmail.googleapis.com/gmail/v1/users/me/messages?maxResults=${maxResults}`);
   },
   sendEmail: async (to: string, subject: string, body: string) => {
     const message = [
@@ -79,7 +77,7 @@ export const gmailService = {
     // Base64Url encode
     const encodedMessage = btoa(message).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
     
-    return fetchGoogleAPI('/gmail/v1/users/me/messages/send', {
+    return fetchGoogleAPI('https://gmail.googleapis.com/gmail/v1/users/me/messages/send', {
       method: 'POST',
       body: JSON.stringify({ raw: encodedMessage })
     });
@@ -91,13 +89,13 @@ export const gmailService = {
 // ==========================
 export const tasksService = {
   getTaskLists: async () => {
-    return fetchGoogleAPI('/tasks/v1/users/@me/lists');
+    return fetchGoogleAPI('https://tasks.googleapis.com/tasks/v1/users/@me/lists');
   },
   getTasks: async (taskListId: string = '@default') => {
-    return fetchGoogleAPI(`/tasks/v1/lists/${taskListId}/tasks`);
+    return fetchGoogleAPI(`https://tasks.googleapis.com/tasks/v1/lists/${taskListId}/tasks`);
   },
   createTask: async (title: string, notes?: string, taskListId: string = '@default') => {
-    return fetchGoogleAPI(`/tasks/v1/lists/${taskListId}/tasks`, {
+    return fetchGoogleAPI(`https://tasks.googleapis.com/tasks/v1/lists/${taskListId}/tasks`, {
       method: 'POST',
       body: JSON.stringify({ title, notes })
     });
@@ -109,7 +107,7 @@ export const tasksService = {
 // ==========================
 export const docsService = {
   createDocument: async (title: string) => {
-    return fetchGoogleAPI('/v1/documents', {
+    return fetchGoogleAPI('https://docs.googleapis.com/v1/documents', {
       method: 'POST',
       body: JSON.stringify({ title })
     });
@@ -118,9 +116,16 @@ export const docsService = {
 
 export const sheetsService = {
   createSpreadsheet: async (title: string) => {
-    return fetchGoogleAPI('/v4/spreadsheets', {
+    return fetchGoogleAPI('https://sheets.googleapis.com/v4/spreadsheets', {
       method: 'POST',
       body: JSON.stringify({ properties: { title } })
     });
+  },
+  getFirstSheetName: async (spreadsheetId: string) => {
+    const data = await fetchGoogleAPI(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}?fields=sheets.properties.title`);
+    return data.sheets[0].properties.title;
+  },
+  getSpreadsheetValues: async (spreadsheetId: string, range: string) => {
+    return fetchGoogleAPI(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(range)}`);
   }
 };

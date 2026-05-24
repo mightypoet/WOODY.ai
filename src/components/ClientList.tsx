@@ -1,26 +1,38 @@
-import React, { useState, useEffect } from 'react';
-import { User, Client } from '../types';
-import { dbService } from '../services/dbService';
-import { Building2, Plus, Search, Mail, Phone, ExternalLink, MoreVertical, Trash2, X } from 'lucide-react';
-import { motion, AnimatePresence } from 'motion/react';
-import { format } from 'date-fns';
-import Modal from './Modal';
+import React, { useState, useEffect } from "react";
+import { User, Client } from "../types";
+import { dbService } from "../services/dbService";
+import {
+  Building2,
+  Plus,
+  Search,
+  Mail,
+  Phone,
+  ExternalLink,
+  MoreVertical,
+  Trash2,
+  X,
+} from "lucide-react";
+import { motion, AnimatePresence } from "motion/react";
+import { format } from "date-fns";
+import Modal from "./Modal";
+import ClientPortal from "./ClientPortal";
 
 export default function ClientList({ user }: { user: User }) {
   const [clients, setClients] = useState<Client[]>([]);
-  const [search, setSearch] = useState('');
+  const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [newClient, setNewClient] = useState({
-    name: '',
-    brand: '',
-    contact: '',
-    services: '',
-    paymentTerms: ''
+    name: "",
+    brand: "",
+    contact: "",
+    services: "",
+    paymentTerms: "",
   });
 
   useEffect(() => {
-    const unsub = dbService.subscribe('clients', (data) => {
+    const unsub = dbService.subscribe("clients", (data) => {
       setClients(data);
       setLoading(false);
     });
@@ -31,35 +43,58 @@ export default function ClientList({ user }: { user: User }) {
     e.preventDefault();
     if (!newClient.name || !newClient.brand) return;
 
-    await dbService.create('clients', {
+    await dbService.create("clients", {
       ...newClient,
-      services: newClient.services.split(',').map(s => s.trim()).filter(Boolean),
-      createdAt: new Date().toISOString()
+      services: newClient.services
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean),
+      createdAt: new Date().toISOString(),
     });
 
-    setNewClient({ name: '', brand: '', contact: '', services: '', paymentTerms: '' });
+    setNewClient({
+      name: "",
+      brand: "",
+      contact: "",
+      services: "",
+      paymentTerms: "",
+    });
     setIsModalOpen(false);
   };
 
   const handleDeleteClient = async (id: string) => {
-    if (confirm('Are you sure you want to delete this client?')) {
-      await dbService.delete('clients', id);
+    if (confirm("Are you sure you want to delete this client?")) {
+      await dbService.delete("clients", id);
     }
   };
 
-  const filteredClients = clients.filter(c => 
-    c.name.toLowerCase().includes(search.toLowerCase()) || 
-    c.brand.toLowerCase().includes(search.toLowerCase())
+  const filteredClients = clients.filter(
+    (c) =>
+      c.name.toLowerCase().includes(search.toLowerCase()) ||
+      c.brand.toLowerCase().includes(search.toLowerCase()),
   );
+
+  if (selectedClient) {
+    const updatedClient =
+      clients.find((c) => c.id === selectedClient.id) || selectedClient;
+    return (
+      <ClientPortal
+        client={updatedClient}
+        onBack={() => setSelectedClient(null)}
+      />
+    );
+  }
 
   return (
     <div className="h-full flex flex-col p-8 space-y-8">
       <header className="flex items-center justify-between">
         <div className="space-y-1">
           <h2 className="text-3xl font-bold tracking-tight">Clients</h2>
-          <p className="text-zinc-500 text-sm">Manage your brand partnerships and contacts.</p>
+          <p className="text-zinc-500 text-sm">
+            Manage your brand partnerships and contacts.
+          </p>
         </div>
-        <button 
+        <button
           onClick={() => setIsModalOpen(true)}
           className="bg-white text-black px-4 py-2 rounded-xl text-sm font-semibold flex items-center gap-2 hover:bg-zinc-200 transition-colors"
         >
@@ -69,7 +104,10 @@ export default function ClientList({ user }: { user: User }) {
       </header>
 
       <div className="relative">
-        <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500" size={18} />
+        <Search
+          className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500"
+          size={18}
+        />
         <input
           type="text"
           placeholder="Search clients by name or brand..."
@@ -90,17 +128,20 @@ export default function ClientList({ user }: { user: User }) {
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.9 }}
                 transition={{ delay: i * 0.05 }}
-                className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 space-y-6 hover:border-zinc-700 transition-all group relative"
+                onClick={() => setSelectedClient(client)}
+                className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 space-y-6 hover:border-zinc-700 hover:bg-zinc-800/50 transition-all cursor-pointer group relative"
               >
                 <div className="flex items-start justify-between">
                   <div className="space-y-1">
                     <h3 className="font-bold text-lg">{client.name}</h3>
-                    <p className="text-xs text-zinc-500 uppercase tracking-widest font-mono">{client.brand}</p>
+                    <p className="text-xs text-zinc-500 uppercase tracking-widest font-mono">
+                      {client.brand}
+                    </p>
                   </div>
                   <div className="flex items-center gap-2">
-                    <button 
+                    <button
                       onClick={() => handleDeleteClient(client.id)}
-                      className="text-zinc-600 hover:text-red-500 transition-colors p-1"
+                      className="text-zinc-600 hover:text-white transition-colors p-1"
                     >
                       <Trash2 size={16} />
                     </button>
@@ -113,18 +154,20 @@ export default function ClientList({ user }: { user: User }) {
                 <div className="space-y-3">
                   <div className="flex items-center gap-3 text-sm text-zinc-400">
                     <Mail size={14} />
-                    <span className="truncate">{client.contact || 'No email provided'}</span>
+                    <span className="truncate">
+                      {client.contact || "No email provided"}
+                    </span>
                   </div>
                   <div className="flex items-center gap-3 text-sm text-zinc-400">
                     <Phone size={14} />
-                    <span>{client.contact || 'No phone provided'}</span>
+                    <span>{client.contact || "No phone provided"}</span>
                   </div>
                 </div>
 
                 <div className="pt-4 border-t border-zinc-800 flex items-center justify-between">
                   <div className="flex -space-x-2">
                     {client.services?.map((service, idx) => (
-                      <div 
+                      <div
                         key={idx}
                         className="w-6 h-6 rounded-full bg-zinc-800 border border-zinc-900 flex items-center justify-center text-[8px] font-bold uppercase"
                         title={service}
@@ -145,70 +188,92 @@ export default function ClientList({ user }: { user: User }) {
         {!loading && filteredClients.length === 0 && (
           <div className="h-64 flex flex-col items-center justify-center text-zinc-500 space-y-4">
             <Building2 size={48} className="opacity-20" />
-            <p className="text-sm italic">No clients found matching your search.</p>
+            <p className="text-sm italic">
+              No clients found matching your search.
+            </p>
           </div>
         )}
       </div>
 
-      <Modal 
-        isOpen={isModalOpen} 
-        onClose={() => setIsModalOpen(false)} 
+      <Modal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
         title="Add New Client"
       >
         <form onSubmit={handleAddClient} className="space-y-4">
           <div className="space-y-1">
-            <label className="text-xs text-zinc-500 uppercase font-mono tracking-widest">Client Name</label>
+            <label className="text-xs text-zinc-500 uppercase font-mono tracking-widest">
+              Client Name
+            </label>
             <input
               required
               type="text"
               value={newClient.name}
-              onChange={(e) => setNewClient({ ...newClient, name: e.target.value })}
+              onChange={(e) =>
+                setNewClient({ ...newClient, name: e.target.value })
+              }
               className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-zinc-500 transition-all"
               placeholder="e.g. John Doe"
             />
           </div>
           <div className="space-y-1">
-            <label className="text-xs text-zinc-500 uppercase font-mono tracking-widest">Brand Name</label>
+            <label className="text-xs text-zinc-500 uppercase font-mono tracking-widest">
+              Brand Name
+            </label>
             <input
               required
               type="text"
               value={newClient.brand}
-              onChange={(e) => setNewClient({ ...newClient, brand: e.target.value })}
+              onChange={(e) =>
+                setNewClient({ ...newClient, brand: e.target.value })
+              }
               className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-zinc-500 transition-all"
               placeholder="e.g. Acme Corp"
             />
           </div>
           <div className="space-y-1">
-            <label className="text-xs text-zinc-500 uppercase font-mono tracking-widest">Contact Info</label>
+            <label className="text-xs text-zinc-500 uppercase font-mono tracking-widest">
+              Contact Info
+            </label>
             <input
               type="text"
               value={newClient.contact}
-              onChange={(e) => setNewClient({ ...newClient, contact: e.target.value })}
+              onChange={(e) =>
+                setNewClient({ ...newClient, contact: e.target.value })
+              }
               className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-zinc-500 transition-all"
               placeholder="e.g. email@example.com"
             />
           </div>
           <div className="space-y-1">
-            <label className="text-xs text-zinc-500 uppercase font-mono tracking-widest">Services (comma separated)</label>
+            <label className="text-xs text-zinc-500 uppercase font-mono tracking-widest">
+              Services (comma separated)
+            </label>
             <input
               type="text"
               value={newClient.services}
-              onChange={(e) => setNewClient({ ...newClient, services: e.target.value })}
+              onChange={(e) =>
+                setNewClient({ ...newClient, services: e.target.value })
+              }
               className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-zinc-500 transition-all"
               placeholder="e.g. SEO, PPC, Social Media"
             />
           </div>
           <div className="space-y-1">
-            <label className="text-xs text-zinc-500 uppercase font-mono tracking-widest">Payment Terms</label>
+            <label className="text-xs text-zinc-500 uppercase font-mono tracking-widest">
+              Payment Terms
+            </label>
             <input
               type="text"
               value={newClient.paymentTerms}
-              onChange={(e) => setNewClient({ ...newClient, paymentTerms: e.target.value })}
+              onChange={(e) =>
+                setNewClient({ ...newClient, paymentTerms: e.target.value })
+              }
               className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-zinc-500 transition-all"
               placeholder="e.g. Net 30"
             />
           </div>
-          <button 
+          <button
             type="submit"
             className="w-full py-3 bg-white text-black font-semibold rounded-xl hover:bg-zinc-200 transition-colors mt-4"
           >

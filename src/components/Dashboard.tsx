@@ -52,10 +52,10 @@ export default function Dashboard({ user }: { user: User }) {
   }, []);
 
   const cards = [
-    { label: 'Active Clients', value: stats.clients, icon: Users, color: 'text-blue-500' },
-    { label: 'Ongoing Projects', value: stats.projects, icon: Briefcase, color: 'text-purple-500' },
-    { label: 'Pending Tasks', value: stats.tasks, icon: Clock, color: 'text-orange-500' },
-    { label: 'Total Revenue', value: `₹${stats.pendingAmount.toLocaleString()}`, icon: TrendingUp, color: 'text-emerald-500' },
+    { label: 'Active Clients', value: stats.clients, icon: Users, color: 'text-white' },
+    { label: 'Ongoing Projects', value: stats.projects, icon: Briefcase, color: 'text-white' },
+    { label: 'Pending Tasks', value: stats.tasks, icon: Clock, color: 'text-zinc-400' },
+    { label: 'Total Revenue', value: `₹${stats.pendingAmount.toLocaleString()}`, icon: TrendingUp, color: 'text-white' },
   ];
 
   return (
@@ -95,15 +95,15 @@ export default function Dashboard({ user }: { user: User }) {
           </button>
           <div className={cn(
             "px-3 py-1.5 rounded-full border text-[10px] font-bold uppercase tracking-widest flex items-center gap-2",
-            emailServiceStatus === 'configured' ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-500" :
+            emailServiceStatus === 'configured' ? "bg-white/10 border-white/20 text-white" :
             emailServiceStatus === 'loading' ? "bg-zinc-800 border-zinc-700 text-zinc-500" :
-            "bg-red-500/10 border-red-500/20 text-red-500"
+            "bg-white/5 border-white/10 text-zinc-400"
           )}>
             <div className={cn(
               "w-1.5 h-1.5 rounded-full",
-              emailServiceStatus === 'configured' ? "bg-emerald-500 animate-pulse" :
+              emailServiceStatus === 'configured' ? "bg-white animate-pulse" :
               emailServiceStatus === 'loading' ? "bg-zinc-500" :
-              "bg-red-500"
+              "bg-zinc-600"
             )} />
             {emailServiceStatus === 'configured' ? 'Email Service Active' : 
              emailServiceStatus === 'loading' ? 'Checking Service...' : 
@@ -137,7 +137,7 @@ export default function Dashboard({ user }: { user: User }) {
         <div className="bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden">
           <div className="p-6 border-b border-zinc-800 flex items-center justify-between">
             <h3 className="font-semibold flex items-center gap-2">
-              <CheckCircle2 size={18} className="text-emerald-500" />
+              <CheckCircle2 size={18} className="text-white" />
               Recent Tasks
             </h3>
             <button className="text-xs text-zinc-500 hover:text-white flex items-center gap-1 transition-colors">
@@ -153,9 +153,9 @@ export default function Dashboard({ user }: { user: User }) {
                 </div>
                 <div className={cn(
                   "px-2 py-1 rounded text-[10px] font-bold uppercase tracking-tighter",
-                  task.priority === 'high' ? "bg-red-500/10 text-red-500" :
-                  task.priority === 'medium' ? "bg-orange-500/10 text-orange-500" :
-                  "bg-emerald-500/10 text-emerald-500"
+                  task.priority === 'high' ? "bg-white/10 text-white" :
+                  task.priority === 'medium' ? "bg-white/5 text-zinc-300" :
+                  "bg-transparent text-zinc-500 border border-zinc-700"
                 )}>
                   {task.priority}
                 </div>
@@ -170,7 +170,7 @@ export default function Dashboard({ user }: { user: User }) {
         <div className="bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden">
           <div className="p-6 border-b border-zinc-800 flex items-center justify-between">
             <h3 className="font-semibold flex items-center gap-2">
-              <CreditCard size={18} className="text-blue-500" />
+              <CreditCard size={18} className="text-white" />
               Recent Payments
             </h3>
             <button className="text-xs text-zinc-500 hover:text-white flex items-center gap-1 transition-colors">
@@ -186,9 +186,9 @@ export default function Dashboard({ user }: { user: User }) {
                 </div>
                 <div className={cn(
                   "px-2 py-1 rounded text-[10px] font-bold uppercase tracking-tighter",
-                  payment.status === 'overdue' ? "bg-red-500/10 text-red-500" :
-                  payment.status === 'paid' ? "bg-emerald-500/10 text-emerald-500" :
-                  "bg-blue-500/10 text-blue-500"
+                  payment.status === 'overdue' ? "bg-white/10 text-white" :
+                  payment.status === 'paid' ? "bg-transparent text-zinc-500 border border-zinc-700" :
+                  "bg-white/5 text-zinc-300"
                 )}>
                   {payment.status}
                 </div>
