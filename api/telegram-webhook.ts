@@ -43,18 +43,23 @@ export default async function handler(req: any, res: any) {
     if (text === '/projects') {
       const { data: projects, error } = await supabase
         .from('projects')
-        .select('name, status');
+        .select('*');
 
-      if (error) throw error;
-
-      let responseText = "📋 *Active Projects Summary:*\n\n";
-      if (!projects || projects.length === 0) {
-        responseText += "No active projects found in Supabase.";
-      } else {
-        projects.forEach(p => {
-          responseText += `• *${p.name}*: Status is _${p.status || 'Active'}_\n`;
-        });
+      if (error) {
+        await reply("Supabase Error: " + error.message);
+        return res.status(200).send("OK");
       }
+
+      if (!projects || projects.length === 0) {
+        await reply("Database Connection Success! But your 'projects' table currently contains 0 rows.");
+        return res.status(200).send("OK");
+      }
+
+      let responseText = "📋 WOODY ACTIVE PROJECTS:\n\n";
+      projects.forEach((p, index) => {
+        responseText += `${index + 1}. Project: ${p.name || 'Unnamed'} | Status: ${p.status || 'No Status Set'}\n`;
+      });
+      
       await reply(responseText);
     } 
     
