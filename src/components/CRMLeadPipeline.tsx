@@ -361,8 +361,8 @@ export default function CRMLeadPipeline() {
           instagram_link: editForm.instagram_link || "",
           contact_number: editForm.contact_number || "",
           conversations: editForm.conversations || "",
-          followup_date: editForm.followup_date || "",
-          meeting_date: editForm.meeting_date || "",
+          followup_date: editForm.followup_date || null,
+          meeting_date: editForm.meeting_date || null,
           createdAt: new Date().toISOString()
         };
         await dbService.create("leads", newLeadDetails);
@@ -373,6 +373,8 @@ export default function CRMLeadPipeline() {
         fetchLeads();
       } else if (editingLead) {
         let finalForm = { ...editForm, id: editingLead.id };
+        if (finalForm.followup_date === "") finalForm.followup_date = null as any;
+        if (finalForm.meeting_date === "") finalForm.meeting_date = null as any;
         let calendarDidSync = false;
 
         // Auto-schedule if status is Contacted and meeting_date is present and not yet synced
@@ -433,9 +435,9 @@ export default function CRMLeadPipeline() {
         fetchLeads();
         if (calendarDidSync) alert("Event automatically scheduled via Google Calendar!");
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error saving lead:", error);
-      alert("Failed to save lead.");
+      alert(`Failed to save lead: ${error.message || JSON.stringify(error)}`);
     } finally {
       setIsUpdating(false);
     }
