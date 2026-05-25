@@ -33,11 +33,13 @@ export default function CRMLeadPipeline() {
   const [editForm, setEditForm] = useState<Partial<Lead>>({});
   const [isUpdating, setIsUpdating] = useState(false);
   const [isCreatingLead, setIsCreatingLead] = useState(false);
+  const [formPage, setFormPage] = useState(0);
 
   const handleCreateLeadClick = () => {
     setEditForm({ status: "Prospect" });
     setEditingLead(null);
     setIsCreatingLead(true);
+    setFormPage(0);
   };
 
   const createTaskForFollowup = async (leadName: string, company: string, followupDate: string) => {
@@ -285,6 +287,7 @@ export default function CRMLeadPipeline() {
   const handleEditClick = (lead: Lead) => {
     setEditingLead(lead);
     setEditForm(lead);
+    setFormPage(0);
   };
 
   const handleLeadStatusChange = async (lead: Lead, newStatus: Lead["status"]) => {
@@ -623,103 +626,117 @@ export default function CRMLeadPipeline() {
         title={isCreatingLead ? "Add New Lead" : "Edit Lead"}
       >
         <form onSubmit={handleSaveLead} className="space-y-4">
-          <div>
-            <label className="text-xs text-zinc-500 uppercase font-mono tracking-widest">Name</label>
-            <input
-              required
-              type="text"
-              value={editForm.name || ""}
-              onChange={e => setEditForm({ ...editForm, name: e.target.value })}
-              className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-zinc-500 transition-all mt-1 text-white"
-            />
-          </div>
-          <div>
-            <label className="text-xs text-zinc-500 uppercase font-mono tracking-widest">Email</label>
-            <input
-              required
-              type="email"
-              value={editForm.email || ""}
-              onChange={e => setEditForm({ ...editForm, email: e.target.value })}
-              className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-zinc-500 transition-all mt-1 text-white"
-            />
-          </div>
-          <div>
-            <label className="text-xs text-zinc-500 uppercase font-mono tracking-widest">Company</label>
-            <input
-              type="text"
-              value={editForm.company || ""}
-              onChange={e => setEditForm({ ...editForm, company: e.target.value })}
-              className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-zinc-500 transition-all mt-1 text-white"
-            />
-          </div>
-          <div>
-            <label className="text-xs text-zinc-500 uppercase font-mono tracking-widest">Status</label>
-            <select
-              value={editForm.status || "Prospect"}
-              onChange={e => setEditForm({ ...editForm, status: e.target.value as Lead["status"] })}
-              className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-zinc-500 transition-all mt-1 text-white"
-            >
-              <option value="Prospect">Prospect</option>
-              <option value="Contacted">Contacted</option>
-              <option value="Qualified">Qualified</option>
-              <option value="Follow up">Follow up</option>
-              <option value="Meeting">Meeting</option>
-              <option value="Sale">Sale</option>
-            </select>
-          </div>
-          <div>
-            <label className="text-xs text-zinc-500 uppercase font-mono tracking-widest">Next Step</label>
-            <input
-              type="text"
-              value={editForm.nextStep || ""}
-              onChange={e => setEditForm({ ...editForm, nextStep: e.target.value })}
-              className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-zinc-500 transition-all mt-1 text-white"
-            />
-          </div>
-          <div>
-            <label className="text-xs text-zinc-500 uppercase font-mono tracking-widest">Instagram Link</label>
-            <input
-              type="text"
-              value={editForm.instagram_link || ""}
-              onChange={e => setEditForm({ ...editForm, instagram_link: e.target.value })}
-              className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-zinc-500 transition-all mt-1 text-white"
-            />
-          </div>
-          <div>
-            <label className="text-xs text-zinc-500 uppercase font-mono tracking-widest">Contact Number</label>
-            <input
-              type="text"
-              value={editForm.contact_number || ""}
-              onChange={e => setEditForm({ ...editForm, contact_number: e.target.value })}
-              className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-zinc-500 transition-all mt-1 text-white"
-            />
-          </div>
-          <div>
-            <label className="text-xs text-zinc-500 uppercase font-mono tracking-widest">Follow-up Date</label>
-            <input
-              type="date"
-              value={editForm.followup_date || ""}
-              onChange={e => setEditForm({ ...editForm, followup_date: e.target.value })}
-              className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-zinc-500 transition-all mt-1 text-white"
-            />
-          </div>
-          <div>
-            <label className="text-xs text-zinc-500 uppercase font-mono tracking-widest">Meeting Date & Time</label>
-            <input
-              type="datetime-local"
-              value={editForm.meeting_date || ""}
-              onChange={e => setEditForm({ ...editForm, meeting_date: e.target.value })}
-              className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-zinc-500 transition-all mt-1 text-white"
-            />
-          </div>
-          <div>
-            <label className="text-xs text-zinc-500 uppercase font-mono tracking-widest">Conversations History</label>
-            <textarea
-              value={editForm.conversations || ""}
-              onChange={e => setEditForm({ ...editForm, conversations: e.target.value })}
-              className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-zinc-500 transition-all mt-1 text-white min-h-[80px]"
-            />
-          </div>
+          {formPage === 0 && (
+            <>
+              <div>
+                <label className="text-xs text-zinc-500 uppercase font-mono tracking-widest">Name</label>
+                <input
+                  required
+                  type="text"
+                  value={editForm.name || ""}
+                  onChange={e => setEditForm({ ...editForm, name: e.target.value })}
+                  className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-zinc-500 transition-all mt-1 text-white"
+                />
+              </div>
+              <div>
+                <label className="text-xs text-zinc-500 uppercase font-mono tracking-widest">Email</label>
+                <input
+                  required
+                  type="email"
+                  value={editForm.email || ""}
+                  onChange={e => setEditForm({ ...editForm, email: e.target.value })}
+                  className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-zinc-500 transition-all mt-1 text-white"
+                />
+              </div>
+              <div>
+                <label className="text-xs text-zinc-500 uppercase font-mono tracking-widest">Company</label>
+                <input
+                  type="text"
+                  value={editForm.company || ""}
+                  onChange={e => setEditForm({ ...editForm, company: e.target.value })}
+                  className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-zinc-500 transition-all mt-1 text-white"
+                />
+              </div>
+              <div>
+                <label className="text-xs text-zinc-500 uppercase font-mono tracking-widest">Status</label>
+                <select
+                  value={editForm.status || "Prospect"}
+                  onChange={e => setEditForm({ ...editForm, status: e.target.value as Lead["status"] })}
+                  className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-zinc-500 transition-all mt-1 text-white"
+                >
+                  <option value="Prospect">Prospect</option>
+                  <option value="Contacted">Contacted</option>
+                  <option value="Qualified">Qualified</option>
+                  <option value="Follow up">Follow up</option>
+                  <option value="Meeting">Meeting</option>
+                  <option value="Sale">Sale</option>
+                </select>
+              </div>
+            </>
+          )}
+
+          {formPage === 1 && (
+            <>
+              <div>
+                <label className="text-xs text-zinc-500 uppercase font-mono tracking-widest">Next Step</label>
+                <input
+                  type="text"
+                  value={editForm.nextStep || ""}
+                  onChange={e => setEditForm({ ...editForm, nextStep: e.target.value })}
+                  className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-zinc-500 transition-all mt-1 text-white"
+                />
+              </div>
+              <div>
+                <label className="text-xs text-zinc-500 uppercase font-mono tracking-widest">Instagram Link</label>
+                <input
+                  type="text"
+                  value={editForm.instagram_link || ""}
+                  onChange={e => setEditForm({ ...editForm, instagram_link: e.target.value })}
+                  className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-zinc-500 transition-all mt-1 text-white"
+                />
+              </div>
+              <div>
+                <label className="text-xs text-zinc-500 uppercase font-mono tracking-widest">Contact Number</label>
+                <input
+                  type="text"
+                  value={editForm.contact_number || ""}
+                  onChange={e => setEditForm({ ...editForm, contact_number: e.target.value })}
+                  className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-zinc-500 transition-all mt-1 text-white"
+                />
+              </div>
+              <div>
+                <label className="text-xs text-zinc-500 uppercase font-mono tracking-widest">Follow-up Date</label>
+                <input
+                  type="date"
+                  value={editForm.followup_date || ""}
+                  onChange={e => setEditForm({ ...editForm, followup_date: e.target.value })}
+                  className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-zinc-500 transition-all mt-1 text-white"
+                />
+              </div>
+            </>
+          )}
+
+          {formPage === 2 && (
+            <>
+              <div>
+                <label className="text-xs text-zinc-500 uppercase font-mono tracking-widest">Meeting Date & Time</label>
+                <input
+                  type="datetime-local"
+                  value={editForm.meeting_date || ""}
+                  onChange={e => setEditForm({ ...editForm, meeting_date: e.target.value })}
+                  className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-zinc-500 transition-all mt-1 text-white"
+                />
+              </div>
+              <div>
+                <label className="text-xs text-zinc-500 uppercase font-mono tracking-widest">Conversations History</label>
+                <textarea
+                  value={editForm.conversations || ""}
+                  onChange={e => setEditForm({ ...editForm, conversations: e.target.value })}
+                  className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-zinc-500 transition-all mt-1 text-white min-h-[80px]"
+                />
+              </div>
+            </>
+          )}
           
           <div className="flex items-center gap-3 pt-4 border-t border-zinc-800 mt-6">
             {!isCreatingLead && (
@@ -739,13 +756,32 @@ export default function CRMLeadPipeline() {
             >
               Cancel
             </button>
-            <button
-              type="submit"
-              disabled={isUpdating}
-              className="px-6 py-2 bg-white text-black hover:bg-zinc-200 text-sm font-semibold rounded-xl transition-all disabled:opacity-50"
-            >
-              {isUpdating ? "Saving..." : "Save Changes"}
-            </button>
+            {formPage > 0 && (
+              <button
+                type="button"
+                onClick={() => setFormPage(p => p - 1)}
+                className="px-6 py-2 bg-zinc-800 text-white hover:bg-zinc-700 text-sm font-semibold rounded-xl transition-all"
+              >
+                Prev
+              </button>
+            )}
+            {formPage < 2 ? (
+              <button
+                type="button"
+                onClick={() => setFormPage(p => p + 1)}
+                className="px-6 py-2 bg-white text-black hover:bg-zinc-200 text-sm font-semibold rounded-xl transition-all"
+              >
+                Next
+              </button>
+            ) : (
+              <button
+                type="submit"
+                disabled={isUpdating}
+                className="px-6 py-2 bg-indigo-600 text-white hover:bg-indigo-500 text-sm font-semibold rounded-xl transition-all disabled:opacity-50"
+              >
+                {isUpdating ? "Saving..." : "Save Changes"}
+              </button>
+            )}
           </div>
         </form>
       </Modal>
