@@ -7,23 +7,33 @@ export async function testConnection() {
 export const dbService = {
   async create(table: string, data: any) {
     try {
-      const payload = { ...data, created_at: new Date().toISOString() };
-      delete payload.createdAt;
-      const { data: insertedData, error } = await supabase
+      const payload = { ...data };
+      if (!payload.createdAt && !payload.created_at) {
+        payload.createdAt = new Date().toISOString();
+      }
+
+      let { data: insertedData, error } = await supabase
         .from(table)
         .insert([payload])
         .select()
         .single();
       
       if (error) {
-        if (error.code === 'PGRST204' || error.message.includes('does not exist')) {
-          // If a column does not exist, try removing transient fields
-          console.warn(`Column missing in table ${table}, trying fallback without transient fields...`, error);
+        if (error.code === 'PGRST204' || error.message.includes('does not exist') || error.message.includes('schema cache')) {
+          console.warn(`Column missing in table ${table}, trying fallback...`, error);
           const fallbackData = { ...payload };
           delete fallbackData.contactNumber;
           delete fallbackData.social_media_calendar_link;
           delete fallbackData.annotation;
           delete fallbackData.socialMediaSheetUrl;
+          
+          if (error.message.includes('createdAt')) {
+            fallbackData.created_at = fallbackData.createdAt;
+            delete fallbackData.createdAt;
+          } else if (error.message.includes('created_at')) {
+            fallbackData.createdAt = fallbackData.created_at;
+            delete fallbackData.created_at;
+          }
           
           const { data: retryData, error: retryError } = await supabase
             .from(table)
@@ -45,20 +55,31 @@ export const dbService = {
 
   async set(table: string, id: string, data: any) {
     try {
-      const payload = { ...data, id, updated_at: new Date().toISOString() };
-      delete payload.updatedAt;
-      const { error } = await supabase
+      const payload = { ...data, id };
+      if (!payload.updatedAt && !payload.updated_at) {
+        payload.updatedAt = new Date().toISOString();
+      }
+
+      let { error } = await supabase
         .from(table)
         .upsert([payload]);
       
       if (error) {
-        if (error.code === 'PGRST204' || error.message.includes('does not exist')) {
-          console.warn(`Column missing in table ${table}, trying fallback without transient fields...`, error);
+        if (error.code === 'PGRST204' || error.message.includes('does not exist') || error.message.includes('schema cache')) {
+          console.warn(`Column missing in table ${table}, trying fallback...`, error);
           const fallbackData = { ...payload };
           delete fallbackData.contactNumber;
           delete fallbackData.socialMediaSheetUrl;
           delete fallbackData.social_media_calendar_link;
           delete fallbackData.annotation;
+
+          if (error.message.includes('updatedAt')) {
+            fallbackData.updated_at = fallbackData.updatedAt;
+            delete fallbackData.updatedAt;
+          } else if (error.message.includes('updated_at')) {
+            fallbackData.updatedAt = fallbackData.updated_at;
+            delete fallbackData.updated_at;
+          }
           
           const { error: retryError } = await supabase
             .from(table)

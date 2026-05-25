@@ -253,7 +253,7 @@ export default function CRMLeadPipeline() {
 
     try {
       // Create Client
-      const client = await dbService.create("clients", {
+      const clientId = await dbService.create("clients", {
         name: lead.name,
         contact: lead.email,
         brand: lead.company,
@@ -262,13 +262,15 @@ export default function CRMLeadPipeline() {
         createdAt: new Date().toISOString()
       });
 
-      // Create Project
-      await dbService.create("projects", {
-        name: `Onboarding: ${lead.company}`,
-        clientId: client.id,
-        status: "active",
-        createdAt: new Date().toISOString()
-      });
+      if (clientId) {
+        // Create Project
+        await dbService.create("projects", {
+          name: `Onboarding: ${lead.company}`,
+          clientId: clientId,
+          status: "active",
+          createdAt: new Date().toISOString()
+        });
+      }
 
       // Update lead
       await dbService.update("leads", lead.id, { 
@@ -280,7 +282,7 @@ export default function CRMLeadPipeline() {
       alert("Successfully converted to active Client & Project created!");
     } catch (e: any) {
       console.error("Conversion error:", e);
-      alert("Failed to convert lead. Check if 'clients' and 'projects' tables exist.");
+      alert(`Failed to convert lead: ${e.message || JSON.stringify(e)}`);
     }
   };
 

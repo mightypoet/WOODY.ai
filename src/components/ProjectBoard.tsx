@@ -52,11 +52,19 @@ export default function ProjectBoard({ user }: { user: User }) {
 
   const handleCreateProject = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newProject.name || !newProject.clientId) return;
-    const id = await dbService.create('projects', { ...newProject, status: 'active', createdAt: new Date().toISOString() });
-    if (id) setSelectedProjectId(id);
-    setIsProjectModalOpen(false);
-    setNewProject({ name: '', clientId: '' });
+    if (!newProject.name || !newProject.clientId) {
+      alert("Project Name and Client are required.");
+      return;
+    }
+    try {
+      const id = await dbService.create('projects', { ...newProject, status: 'active', createdAt: new Date().toISOString() });
+      if (id) setSelectedProjectId(id);
+      setIsProjectModalOpen(false);
+      setNewProject({ name: '', clientId: '' });
+    } catch (error: any) {
+      console.error("Error creating project:", error);
+      alert(`Failed to create project: ${error.message || JSON.stringify(error)}`);
+    }
   };
 
   const handleCreateTask = async (e: React.FormEvent) => {
@@ -65,25 +73,30 @@ export default function ProjectBoard({ user }: { user: User }) {
     
     const assigneeId = newTask.assigneeId || user.id;
     
-    await dbService.create('tasks', { 
-      ...newTask, 
-      projectId: selectedProjectId, 
-      assigneeId: assigneeId,
-      createdAt: new Date().toISOString() 
-    });
+    try {
+      await dbService.create('tasks', { 
+        ...newTask, 
+        projectId: selectedProjectId, 
+        assigneeId: assigneeId,
+        createdAt: new Date().toISOString() 
+      });
 
-    // Notify assignee if it's someone else
-    if (assigneeId !== user.uid) {
-      const project = projects.find(p => p.id === selectedProjectId);
-      await notificationService.sendNotification(
-        assigneeId,
-        `You have been assigned a new task: "${newTask.title}" in project "${project?.name || 'Unknown'}"`,
-        'task'
-      );
+      // Notify assignee if it's someone else
+      if (assigneeId !== user.id && assigneeId !== (user as any).uid) {
+        const project = projects.find(p => p.id === selectedProjectId);
+        await notificationService.sendNotification(
+          assigneeId,
+          `You have been assigned a new task: "${newTask.title}" in project "${project?.name || 'Unknown'}"`,
+          'task'
+        );
+      }
+
+      setIsTaskModalOpen(false);
+      setNewTask({ title: '', description: '', priority: 'medium', deadline: '', status: 'todo', assigneeId: '' });
+    } catch (error: any) {
+      console.error("Error creating task:", error);
+      alert(`Failed to create task: ${error.message || JSON.stringify(error)}`);
     }
-
-    setIsTaskModalOpen(false);
-    setNewTask({ title: '', description: '', priority: 'medium', deadline: '', status: 'todo', assigneeId: '' });
   };
 
   const handleDeleteTask = async (id: string, e: React.MouseEvent) => {
