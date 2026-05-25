@@ -27,23 +27,19 @@ export const dbService = {
           delete fallbackData.annotation;
           delete fallbackData.socialMediaSheetUrl;
           
-          if (error.message.includes('createdAt')) {
+          if (fallbackData.createdAt !== undefined) {
             fallbackData.created_at = fallbackData.createdAt;
             delete fallbackData.createdAt;
-          } else if (error.message.includes('created_at')) {
-            fallbackData.createdAt = fallbackData.created_at;
-            delete fallbackData.created_at;
           }
-
-          if (error.message.includes('clientId')) {
+          if (fallbackData.clientId !== undefined) {
             fallbackData.client_id = fallbackData.clientId;
             delete fallbackData.clientId;
           }
-          if (error.message.includes('projectId')) {
+          if (fallbackData.projectId !== undefined) {
             fallbackData.project_id = fallbackData.projectId;
             delete fallbackData.projectId;
           }
-          if (error.message.includes('assigneeId')) {
+          if (fallbackData.assigneeId !== undefined) {
             fallbackData.assignee_id = fallbackData.assigneeId;
             delete fallbackData.assigneeId;
           }
@@ -86,23 +82,19 @@ export const dbService = {
           delete fallbackData.social_media_calendar_link;
           delete fallbackData.annotation;
 
-          if (error.message.includes('updatedAt')) {
+          if (fallbackData.updatedAt !== undefined) {
             fallbackData.updated_at = fallbackData.updatedAt;
             delete fallbackData.updatedAt;
-          } else if (error.message.includes('updated_at')) {
-            fallbackData.updatedAt = fallbackData.updated_at;
-            delete fallbackData.updated_at;
           }
-
-          if (error.message.includes('clientId')) {
+          if (fallbackData.clientId !== undefined) {
             fallbackData.client_id = fallbackData.clientId;
             delete fallbackData.clientId;
           }
-          if (error.message.includes('projectId')) {
+          if (fallbackData.projectId !== undefined) {
             fallbackData.project_id = fallbackData.projectId;
             delete fallbackData.projectId;
           }
-          if (error.message.includes('assigneeId')) {
+          if (fallbackData.assigneeId !== undefined) {
             fallbackData.assignee_id = fallbackData.assigneeId;
             delete fallbackData.assigneeId;
           }
@@ -138,15 +130,15 @@ export const dbService = {
           delete fallbackData.social_media_calendar_link;
           delete fallbackData.annotation;
           
-          if (error.message.includes('clientId')) {
+          if (fallbackData.clientId !== undefined) {
             fallbackData.client_id = fallbackData.clientId;
             delete fallbackData.clientId;
           }
-          if (error.message.includes('projectId')) {
+          if (fallbackData.projectId !== undefined) {
             fallbackData.project_id = fallbackData.projectId;
             delete fallbackData.projectId;
           }
-          if (error.message.includes('assigneeId')) {
+          if (fallbackData.assigneeId !== undefined) {
             fallbackData.assignee_id = fallbackData.assigneeId;
             delete fallbackData.assigneeId;
           }

@@ -30,7 +30,7 @@ export default function TeamManagement({ user }: { user: User }) {
 
     // Use email as ID for consistency as per previous instructions
     await dbService.set('users', newMember.email, {
-      uid: newMember.email,
+      id: newMember.email,
       name: newMember.name,
       email: newMember.email,
       role: newMember.role,
@@ -88,7 +88,7 @@ export default function TeamManagement({ user }: { user: User }) {
             <AnimatePresence mode="popLayout">
               {members.map((member, i) => (
                 <motion.div
-                  key={member.uid || member.email}
+                  key={member.id || member.email}
                   layout
                   initial={{ opacity: 0, scale: 0.9 }}
                   animate={{ opacity: 1, scale: 1 }}
@@ -109,9 +109,9 @@ export default function TeamManagement({ user }: { user: User }) {
                         </div>
                       </div>
                     </div>
-                    {isAdmin && member.uid !== user.uid && (
+                    {isAdmin && member.id !== user.id && (
                       <button 
-                        onClick={() => handleDeleteMember(member.uid || member.email)}
+                        onClick={() => handleDeleteMember(member.id || member.email)}
                         className="text-zinc-600 hover:text-white transition-colors p-1 opacity-0 group-hover:opacity-100"
                       >
                         <Trash2 size={16} />

@@ -301,8 +301,8 @@ export default function ProjectBoard({ user }: { user: User }) {
               className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-zinc-500 transition-all"
             >
               <option value="">Myself</option>
-              {members.filter(m => m.uid !== user.uid).map(m => (
-                <option key={m.uid || m.email} value={m.uid || m.email}>{m.name}</option>
+              {members.filter(m => m.id !== user.id).map(m => (
+                <option key={m.id || m.email} value={m.id || m.email}>{m.name}</option>
               ))}
             </select>
           </div>

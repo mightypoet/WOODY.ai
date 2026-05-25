@@ -188,7 +188,7 @@ export default function ClientList({ user }: { user: User }) {
 
                 <div className="pt-4 border-t border-zinc-800 flex items-center justify-between">
                   <div className="flex -space-x-2">
-                    {(Array.isArray(client.services) ? client.services : typeof client.services === 'string' ? client.services.split(',') : []).map((service, idx) => (
+                    {(Array.isArray(client.services) ? client.services : typeof client.services === 'string' ? (client.services as string).split(',') : []).map((service, idx) => (
                       <div
                         key={idx}
                         className="w-6 h-6 rounded-full bg-zinc-800 border border-zinc-900 flex items-center justify-center text-[8px] font-bold uppercase"

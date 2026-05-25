@@ -328,7 +328,7 @@ export default function ChatInterface({ user }: { user: User }) {
           case "SET_REMINDER":
             await dbService.create("notifications", {
               message: action.payload.message,
-              userId: user.uid,
+              userId: user.id,
               read: false,
               type: "reminder",
               createdAt: now,
@@ -642,7 +642,7 @@ export default function ChatInterface({ user }: { user: User }) {
                   description: notes,
                   status: 'todo',
                   priority: 'medium',
-                  assigneeId: user.uid,
+                  assigneeId: user.id,
                   deadline,
                   createdAt: now
                 });
