@@ -7,9 +7,11 @@ export async function testConnection() {
 export const dbService = {
   async create(table: string, data: any) {
     try {
+      const payload = { ...data, created_at: new Date().toISOString() };
+      delete payload.createdAt;
       const { data: insertedData, error } = await supabase
         .from(table)
-        .insert([{ ...data, createdAt: new Date().toISOString() }])
+        .insert([payload])
         .select()
         .single();
       
@@ -17,7 +19,7 @@ export const dbService = {
         if (error.code === 'PGRST204' || error.message.includes('does not exist')) {
           // If a column does not exist, try removing transient fields
           console.warn(`Column missing in table ${table}, trying fallback without transient fields...`, error);
-          const fallbackData = { ...data };
+          const fallbackData = { ...payload };
           delete fallbackData.contactNumber;
           delete fallbackData.social_media_calendar_link;
           delete fallbackData.annotation;
@@ -25,7 +27,7 @@ export const dbService = {
           
           const { data: retryData, error: retryError } = await supabase
             .from(table)
-            .insert([{ ...fallbackData, createdAt: new Date().toISOString() }])
+            .insert([fallbackData])
             .select()
             .single();
             
@@ -43,14 +45,16 @@ export const dbService = {
 
   async set(table: string, id: string, data: any) {
     try {
+      const payload = { ...data, id, updated_at: new Date().toISOString() };
+      delete payload.updatedAt;
       const { error } = await supabase
         .from(table)
-        .upsert([{ ...data, id, updatedAt: new Date().toISOString() }]);
+        .upsert([payload]);
       
       if (error) {
         if (error.code === 'PGRST204' || error.message.includes('does not exist')) {
           console.warn(`Column missing in table ${table}, trying fallback without transient fields...`, error);
-          const fallbackData = { ...data };
+          const fallbackData = { ...payload };
           delete fallbackData.contactNumber;
           delete fallbackData.socialMediaSheetUrl;
           delete fallbackData.social_media_calendar_link;
@@ -58,7 +62,7 @@ export const dbService = {
           
           const { error: retryError } = await supabase
             .from(table)
-            .upsert([{ ...fallbackData, id, updatedAt: new Date().toISOString() }]);
+            .upsert([fallbackData]);
             
           if (retryError) throw retryError;
           return;

@@ -362,8 +362,7 @@ export default function CRMLeadPipeline() {
           contact_number: editForm.contact_number || "",
           conversations: editForm.conversations || "",
           followup_date: editForm.followup_date || null,
-          meeting_date: editForm.meeting_date || null,
-          createdAt: new Date().toISOString()
+          meeting_date: editForm.meeting_date || null
         };
         await dbService.create("leads", newLeadDetails);
         if (newLeadDetails.followup_date) {
