@@ -63,7 +63,7 @@ export default function ProjectBoard({ user }: { user: User }) {
     e.preventDefault();
     if (!newTask.title || !selectedProjectId) return;
     
-    const assigneeId = newTask.assigneeId || user.uid;
+    const assigneeId = newTask.assigneeId || user.id;
     
     await dbService.create('tasks', { 
       ...newTask, 

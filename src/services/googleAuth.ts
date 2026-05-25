@@ -7,7 +7,7 @@ export interface AuthUser {
   displayName: string | null;
 }
 
-let cachedAccessToken: string | null = null;
+let cachedAccessToken: string | null = localStorage.getItem('google_provider_token');
 
 export const initAuth = (
   onAuthSuccess?: (user: AuthUser, token: string) => void,
@@ -22,17 +22,21 @@ export const initAuth = (
     }
     
     if (session?.user) {
-      cachedAccessToken = session.provider_token || session.access_token;
+      if (session.provider_token) {
+        cachedAccessToken = session.provider_token;
+        localStorage.setItem('google_provider_token', session.provider_token);
+      }
       const user: AuthUser = {
         id: session.user.id,
         email: session.user.email || null,
         displayName: session.user.user_metadata?.full_name || session.user.email?.split('@')[0] || null,
       };
       if (onAuthSuccess) {
-        onAuthSuccess(user, cachedAccessToken);
+        onAuthSuccess(user, cachedAccessToken || "");
       }
     } else {
       cachedAccessToken = null;
+      localStorage.removeItem('google_provider_token');
       if (onAuthFailure) onAuthFailure();
     }
     initialCheckDone = true;
@@ -48,17 +52,21 @@ export const initAuth = (
       if (event === 'INITIAL_SESSION' && initialCheckDone) return;
 
       if (session?.user) {
-        cachedAccessToken = session.provider_token || session.access_token;
+        if (session.provider_token) {
+          cachedAccessToken = session.provider_token;
+          localStorage.setItem('google_provider_token', session.provider_token);
+        }
         const user: AuthUser = {
           id: session.user.id,
           email: session.user.email || null,
           displayName: session.user.user_metadata?.full_name || session.user.email?.split('@')[0] || null,
         };
         if (onAuthSuccess) {
-          onAuthSuccess(user, cachedAccessToken);
+          onAuthSuccess(user, cachedAccessToken || "");
         }
       } else {
         cachedAccessToken = null;
+        localStorage.removeItem('google_provider_token');
         if (onAuthFailure) onAuthFailure();
       }
     }
@@ -114,12 +122,22 @@ export const googleSignIn = async (): Promise<{ user: AuthUser; accessToken: str
                 await supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken });
               }
               
+              // If there's a google provider_token explicitly passed back
+              const providerToken = params.get('provider_token');
+              if (providerToken) {
+                cachedAccessToken = providerToken;
+                localStorage.setItem('google_provider_token', providerToken);
+              }
+              
               authWindow.close();
               
               const { data: sessionData } = await supabase.auth.getSession();
               if (sessionData?.session?.user) {
                 const u = sessionData.session.user;
-                cachedAccessToken = sessionData.session.provider_token || sessionData.session.access_token;
+                if (sessionData.session.provider_token) {
+                  cachedAccessToken = sessionData.session.provider_token;
+                  localStorage.setItem('google_provider_token', cachedAccessToken);
+                }
                 resolve({
                   user: {
                     id: u.id,
@@ -143,7 +161,10 @@ export const googleSignIn = async (): Promise<{ user: AuthUser; accessToken: str
             const { data: sessionData } = await supabase.auth.getSession();
             if (sessionData?.session?.user) {
               const u = sessionData.session.user;
-              cachedAccessToken = sessionData.session.provider_token || sessionData.session.access_token;
+              if (sessionData.session.provider_token) {
+                cachedAccessToken = sessionData.session.provider_token;
+                localStorage.setItem('google_provider_token', cachedAccessToken);
+              }
               resolve({
                 user: {
                   id: u.id,
@@ -175,4 +196,5 @@ export const getAccessToken = async (): Promise<string | null> => {
 export const logout = async () => {
   await supabase.auth.signOut();
   cachedAccessToken = null;
+  localStorage.removeItem('google_provider_token');
 };

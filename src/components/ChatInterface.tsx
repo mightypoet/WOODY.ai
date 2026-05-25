@@ -65,12 +65,21 @@ export default function ChatInterface({ user }: { user: User }) {
     };
   }, []);
 
-  const startListening = () => {
+  const startListening = async () => {
     if (
       !("webkitSpeechRecognition" in window) &&
       !("SpeechRecognition" in window)
     ) {
-      alert("Speech recognition is not supported in this browser.");
+      alert("Speech recognition is not supported in this browser. Please try using Chrome Desktop.");
+      return;
+    }
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      stream.getTracks().forEach(track => track.stop());
+    } catch (err) {
+      alert("Microphone permission is required for voice commands.");
+      console.error("Mic access denied:", err);
       return;
     }
 
@@ -210,7 +219,7 @@ export default function ChatInterface({ user }: { user: User }) {
                 deadline: action.payload.deadline || "",
                 projectId: project.id,
                 status: "todo",
-                assigneeId: user.uid, // Default to current user
+                assigneeId: user.id, // Default to current user
                 createdAt: now,
               });
               results.push(
@@ -741,12 +750,13 @@ export default function ChatInterface({ user }: { user: User }) {
   };
 
   return (
-    <div className="h-full flex flex-col max-w-5xl mx-auto px-4 relative">
+    <div className="h-full w-full flex flex-col relative overflow-hidden">
       <div
-        className="flex-1 overflow-y-auto py-8 pb-32 space-y-8 scroll-smooth"
+        className="flex-1 overflow-y-auto w-full scroll-smooth"
         ref={scrollRef}
       >
-        <AnimatePresence initial={false}>
+        <div className="max-w-5xl mx-auto px-4 py-8 pb-32 space-y-8 flex flex-col">
+          <AnimatePresence initial={false}>
           {messages.map((message) => (
             <motion.div
               key={message.id}
@@ -826,6 +836,7 @@ export default function ChatInterface({ user }: { user: User }) {
             </div>
           </div>
         )}
+        </div>
       </div>
 
       <div className="absolute bottom-6 left-4 right-4 max-w-4xl mx-auto z-20">

@@ -32,22 +32,12 @@ export default function CRMLeadPipeline() {
   const [editingLead, setEditingLead] = useState<Lead | null>(null);
   const [editForm, setEditForm] = useState<Partial<Lead>>({});
   const [isUpdating, setIsUpdating] = useState(false);
+  const [isCreatingLead, setIsCreatingLead] = useState(false);
 
-  const notifyTelegram = async (leadName: string, company: string, status: string, followupDate?: string) => {
-    const telegramToken = import.meta.env.VITE_TELEGRAM_BOT_TOKEN;
-    const chatId = import.meta.env.VITE_TELEGRAM_CHAT_ID || "7031772261";
-    if (!telegramToken) return;
-
-    const text = `🔔 *Woody CRM Update*\n• *Lead:* ${leadName}\n• *Company:* ${company}\n• *New Status:* ${status}\n• *Followup Date:* ${followupDate || "N/A"}`;
-    try {
-      await fetch(`https://api.telegram.org/bot${telegramToken}/sendMessage`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ chat_id: chatId, text, parse_mode: "Markdown" })
-      });
-    } catch (err) {
-      console.error("Telegram notification failed:", err);
-    }
+  const handleCreateLeadClick = () => {
+    setEditForm({ status: "Prospect" });
+    setEditingLead(null);
+    setIsCreatingLead(true);
   };
 
   const createTaskForFollowup = async (leadName: string, company: string, followupDate: string) => {
@@ -107,6 +97,9 @@ export default function CRMLeadPipeline() {
       });
       
       if (!res.ok) {
+        if (res.status === 401) {
+          throw new Error("Google session expired or invalid. Please log out, and log back in to refresh your Google authentication token.");
+        }
         throw new Error(`Google Sheets API error: ${res.status} ${res.statusText}`);
       }
       
@@ -132,7 +125,6 @@ export default function CRMLeadPipeline() {
             if (followup_date) {
               await createTaskForFollowup(name, company, followup_date);
             }
-            await notifyTelegram(name, company, status, followup_date);
             imported++;
           }
         }
@@ -143,7 +135,7 @@ export default function CRMLeadPipeline() {
       }
     } catch (error: any) {
       console.error("Error importing from Sheets:", error);
-      alert("Error reading Google Sheet. Ensure the ID is correct and you have permission.");
+      alert(error.message || "Error reading Google Sheet. Ensure the ID is correct and you have permission.");
     } finally {
       setImporting(false);
       setSpreadsheetId("");
@@ -182,6 +174,9 @@ export default function CRMLeadPipeline() {
       });
       
       if (!res.ok) {
+        if (res.status === 401) {
+            throw new Error("Google session expired or invalid. Please log out, and log back in to refresh your Google authentication token.");
+        }
         throw new Error(`Gmail API error: ${res.status} ${res.statusText}`);
       }
 
@@ -193,9 +188,9 @@ export default function CRMLeadPipeline() {
       });
       fetchLeads();
       alert("Email sent successfully!");
-    } catch (e) {
+    } catch (e: any) {
       console.error("Error sending email:", e);
-      alert("Failed to send email. Check API permissions.");
+      alert(e.message || "Failed to send email. Check API permissions.");
     }
   };
 
@@ -232,6 +227,9 @@ export default function CRMLeadPipeline() {
       });
       
       if (!res.ok) {
+        if (res.status === 401) {
+            throw new Error("Google session expired or invalid. Please log out, and log back in to refresh your Google authentication token.");
+        }
         throw new Error(`Calendar API error: ${res.status} ${res.statusText}`);
       }
       
@@ -241,9 +239,9 @@ export default function CRMLeadPipeline() {
       });
       fetchLeads();
       alert("Event scheduled and invite sent via Google Calendar!");
-    } catch (e) {
+    } catch (e: any) {
       console.error("Error scheduling:", e);
-      alert("Failed to schedule call.");
+      alert(e.message || "Failed to schedule call.");
     }
   };
 
@@ -289,32 +287,27 @@ export default function CRMLeadPipeline() {
     setEditForm(lead);
   };
 
-  const handleUpdateLead = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!editingLead) return;
-    setIsUpdating(true);
-    try {
-      let finalForm = { ...editForm };
-      let calendarDidSync = false;
+  const handleLeadStatusChange = async (lead: Lead, newStatus: Lead["status"]) => {
+    let calendarDidSync = false;
+    let updatedLead = { ...lead, status: newStatus };
 
-      // Auto-schedule if status is Contacted and meeting_date is present and not yet synced
-      if (
-        finalForm.status === "Contacted" && 
-        finalForm.meeting_date && 
-        !editingLead.calendar_synced
-      ) {
-        try {
-          const token = await getAccessToken();
-          if (!token) throw new Error("Google not authenticated");
-          
-          const start = new Date(finalForm.meeting_date);
+    // Auto-schedule if status is Contacted and meeting_date is present and not yet synced
+    if (
+      newStatus === "Contacted" && 
+      lead.meeting_date && 
+      !lead.calendar_synced
+    ) {
+      try {
+        const token = await getAccessToken();
+        if (token) {
+          const start = new Date(lead.meeting_date);
           const end = new Date(start);
           end.setMinutes(end.getMinutes() + 30);
           
           const event = {
-            summary: `Meeting: ${finalForm.company || finalForm.name} / Us`,
-            description: `Automated calendar invite from CRM for ${finalForm.name}`,
-            attendees: [{ email: finalForm.email }],
+            summary: `Meeting: ${lead.company || lead.name} / Us`,
+            description: `Automated calendar invite from CRM for ${lead.name}`,
+            attendees: [{ email: lead.email }],
             start: { dateTime: start.toISOString() },
             end: { dateTime: end.toISOString() }
           };
@@ -330,34 +323,116 @@ export default function CRMLeadPipeline() {
           
           if (res.ok) {
             calendarDidSync = true;
-            finalForm.calendar_synced = true;
-            finalForm.nextStep = "Meeting Scheduled";
+            updatedLead.calendar_synced = true;
+            updatedLead.nextStep = "Meeting Scheduled";
           } else {
-            console.error("Calendar sync failed:", await res.text());
+            const errText = await res.text();
+            if (res.status === 401) {
+                alert("Automated Calendar Sync Failed: Your Google session has expired. Please log out and back in to refresh it.");
+            }
+            console.error("Calendar sync failed:", errText);
           }
-        } catch (syncError) {
-          console.error("Auto Calendar sync error:", syncError);
         }
+      } catch (syncError) {
+        console.error("Auto Calendar sync error:", syncError);
       }
+    }
 
-      await dbService.update("leads", editingLead.id, finalForm);
-      
-      // Auto-create task if follow-up date changed or was set
-      if (finalForm.followup_date && finalForm.followup_date !== editingLead.followup_date) {
-        await createTaskForFollowup(finalForm.name || editingLead.name, finalForm.company || editingLead.company, finalForm.followup_date);
-      }
-      
-      // Notify Telegram if status changed or follow-up scheduled
-      if ((finalForm.status && finalForm.status !== editingLead.status) || (finalForm.followup_date && finalForm.followup_date !== editingLead.followup_date)) {
-        await notifyTelegram(finalForm.name || editingLead.name, finalForm.company || editingLead.company, finalForm.status || editingLead.status, finalForm.followup_date);
-      }
+    await dbService.update("leads", lead.id, updatedLead);
+    fetchLeads();
+    
+    if (calendarDidSync) alert("Event automatically scheduled via Google Calendar!");
+  };
 
-      setEditingLead(null);
-      fetchLeads();
-      if (calendarDidSync) alert("Event automatically scheduled via Google Calendar!");
+  const handleSaveLead = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingLead && !isCreatingLead) return;
+    setIsUpdating(true);
+    try {
+      if (isCreatingLead) {
+        const newLeadDetails = {
+          name: editForm.name || "",
+          email: editForm.email || "",
+          company: editForm.company || "",
+          status: editForm.status || "Prospect",
+          instagram_link: editForm.instagram_link || "",
+          contact_number: editForm.contact_number || "",
+          conversations: editForm.conversations || "",
+          followup_date: editForm.followup_date || "",
+          meeting_date: editForm.meeting_date || "",
+          createdAt: new Date().toISOString()
+        };
+        await dbService.create("leads", newLeadDetails);
+        if (newLeadDetails.followup_date) {
+            await createTaskForFollowup(newLeadDetails.name, newLeadDetails.company, newLeadDetails.followup_date);
+        }
+        setIsCreatingLead(false);
+        fetchLeads();
+      } else if (editingLead) {
+        let finalForm = { ...editForm, id: editingLead.id };
+        let calendarDidSync = false;
+
+        // Auto-schedule if status is Contacted and meeting_date is present and not yet synced
+        if (
+          finalForm.status === "Contacted" && 
+          finalForm.meeting_date && 
+          !editingLead.calendar_synced
+        ) {
+          try {
+            const token = await getAccessToken();
+            if (!token) throw new Error("Google not authenticated");
+            
+            const start = new Date(finalForm.meeting_date);
+            const end = new Date(start);
+            end.setMinutes(end.getMinutes() + 30);
+            
+            const event = {
+              summary: `Meeting: ${finalForm.company || finalForm.name} / Us`,
+              description: `Automated calendar invite from CRM for ${finalForm.name}`,
+              attendees: [{ email: finalForm.email }],
+              start: { dateTime: start.toISOString() },
+              end: { dateTime: end.toISOString() }
+            };
+
+            const res = await fetch("https://www.googleapis.com/calendar/v3/calendars/primary/events", {
+              method: "POST",
+              headers: {
+                Authorization: `Bearer ${token}`,
+                "Content-Type": "application/json"
+              },
+              body: JSON.stringify(event)
+            });
+            
+            if (res.ok) {
+              calendarDidSync = true;
+              finalForm.calendar_synced = true;
+              finalForm.nextStep = "Meeting Scheduled";
+            } else {
+              const errText = await res.text();
+              if (res.status === 401) {
+                  alert("Automated Calendar Sync Failed: Your Google session has expired. Please log out and back in to refresh it.");
+              }
+              console.error("Calendar sync failed:", errText);
+            }
+          } catch (syncError) {
+            console.error("Auto Calendar sync error:", syncError);
+          }
+        }
+
+        await dbService.update("leads", editingLead.id, finalForm);
+        
+        // Auto-create task if follow-up date changed or was set
+        if (finalForm.followup_date && finalForm.followup_date !== editingLead.followup_date) {
+          await createTaskForFollowup(finalForm.name || editingLead.name, finalForm.company || editingLead.company, finalForm.followup_date);
+        }
+        
+        setEditingLead(null);
+        fetchLeads();
+        if (calendarDidSync) alert("Event automatically scheduled via Google Calendar!");
+      }
     } catch (error) {
-      console.error("Error updating lead:", error);
-      alert("Failed to update lead.");
+      console.error("Error saving lead:", error);
+      alert("Failed to save lead.");
     } finally {
       setIsUpdating(false);
     }
@@ -394,9 +469,7 @@ export default function CRMLeadPipeline() {
             if (leadId) {
               const leadToMove = leads.find(l => l.id === leadId);
               if (leadToMove && leadToMove.status !== status) {
-                await dbService.update("leads", leadId, { status });
-                await notifyTelegram(leadToMove.name, leadToMove.company, status, leadToMove.followup_date);
-                fetchLeads();
+                await handleLeadStatusChange(leadToMove, status);
               }
             }
           }}
@@ -485,6 +558,13 @@ export default function CRMLeadPipeline() {
         </div>
         <div className="flex gap-3">
           <button 
+            onClick={handleCreateLeadClick}
+            className="px-4 py-2 flex items-center justify-center gap-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 transition-colors text-white text-sm font-semibold shadow-md"
+            title="Add Lead manually"
+          >
+            <Plus size={16} /> Add Lead
+          </button>
+          <button 
             onClick={fetchLeads} 
             className="w-10 h-10 flex items-center justify-center rounded-xl bg-zinc-900 border border-zinc-800 hover:bg-zinc-800 transition-colors text-white"
             title="Refresh Leads"
@@ -538,11 +618,11 @@ export default function CRMLeadPipeline() {
       </div>
 
       <Modal
-        isOpen={!!editingLead}
-        onClose={() => setEditingLead(null)}
-        title="Edit Lead"
+        isOpen={!!editingLead || isCreatingLead}
+        onClose={() => { setEditingLead(null); setIsCreatingLead(false); }}
+        title={isCreatingLead ? "Add New Lead" : "Edit Lead"}
       >
-        <form onSubmit={handleUpdateLead} className="space-y-4">
+        <form onSubmit={handleSaveLead} className="space-y-4">
           <div>
             <label className="text-xs text-zinc-500 uppercase font-mono tracking-widest">Name</label>
             <input
@@ -642,17 +722,19 @@ export default function CRMLeadPipeline() {
           </div>
           
           <div className="flex items-center gap-3 pt-4 border-t border-zinc-800 mt-6">
-            <button
-              type="button"
-              onClick={() => editingLead && handleDeleteLead(editingLead.id)}
-              className="px-4 py-2 bg-red-500/10 text-red-500 hover:bg-red-500/20 text-sm font-medium rounded-xl transition-colors"
-            >
-              Delete Lead
-            </button>
+            {!isCreatingLead && (
+              <button
+                type="button"
+                onClick={() => editingLead && handleDeleteLead(editingLead.id)}
+                className="px-4 py-2 bg-red-500/10 text-red-500 hover:bg-red-500/20 text-sm font-medium rounded-xl transition-colors"
+              >
+                Delete Lead
+              </button>
+            )}
             <div className="flex-1" />
             <button
               type="button"
-              onClick={() => setEditingLead(null)}
+              onClick={() => { setEditingLead(null); setIsCreatingLead(false); }}
               className="px-4 py-2 text-zinc-400 hover:text-white text-sm font-medium transition-colors"
             >
               Cancel

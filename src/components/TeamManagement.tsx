@@ -49,7 +49,7 @@ export default function TeamManagement({ user }: { user: User }) {
   };
 
   const handleDeleteMember = async (id: string) => {
-    if (id === user.uid) {
+    if (id === user.id) {
       alert("You cannot delete yourself.");
       return;
     }
