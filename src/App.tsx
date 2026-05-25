@@ -11,7 +11,7 @@ import ClientList from './components/ClientList';
 import ProjectBoard from './components/ProjectBoard';
 import PaymentTracker from './components/PaymentTracker';
 import TeamManagement from './components/TeamManagement';
-import Todos from './components/Todos';
+import CRMLeadPipeline from './components/CRMLeadPipeline';
 import CalendarView from './components/CalendarView';
 
 export default function App() {
@@ -19,7 +19,7 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [authError, setAuthError] = useState<string | null>(null);
   const [dbError, setDbError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'chat' | 'dashboard' | 'calendar' | 'clients' | 'projects' | 'payments' | 'team' | 'todos'>('chat');
+  const [activeTab, setActiveTab] = useState<'chat' | 'dashboard' | 'calendar' | 'clients' | 'projects' | 'payments' | 'team' | 'crm'>('chat');
   const [supabaseConfigError, setSupabaseConfigError] = useState<boolean>(false);
 
   useEffect(() => {
@@ -181,7 +181,7 @@ export default function App() {
     { id: 'projects', label: 'Projects', icon: Briefcase },
     { id: 'payments', label: 'Payments', icon: CreditCard },
     { id: 'team', label: 'Team', icon: Users },
-    { id: 'todos', label: 'Supabase', icon: CheckCircle2 },
+    { id: 'crm', label: 'CRM / Leads', icon: CheckCircle2 },
   ];
 
   return (
@@ -275,7 +275,7 @@ export default function App() {
               {activeTab === 'projects' && <ProjectBoard user={user} />}
               {activeTab === 'payments' && <PaymentTracker user={user} />}
               {activeTab === 'team' && <TeamManagement user={user} />}
-              {activeTab === 'todos' && <Todos />}
+              {activeTab === 'crm' && <CRMLeadPipeline />}
             </motion.div>
           </AnimatePresence>
           </div>
