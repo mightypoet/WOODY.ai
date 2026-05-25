@@ -10,7 +10,7 @@ interface Lead {
   id: string;
   name: string;
   email: string;
-  status: "Prospect" | "Contacted" | "Qualified" | "Client";
+  status: "Prospect" | "Contacted" | "Qualified" | "Follow up" | "Meeting" | "Sale";
   company: string;
   lastContactDate?: string;
   nextStep?: string;
@@ -32,6 +32,41 @@ export default function CRMLeadPipeline() {
   const [editingLead, setEditingLead] = useState<Lead | null>(null);
   const [editForm, setEditForm] = useState<Partial<Lead>>({});
   const [isUpdating, setIsUpdating] = useState(false);
+
+  const notifyTelegram = async (leadName: string, company: string, status: string, followupDate?: string) => {
+    const telegramToken = import.meta.env.VITE_TELEGRAM_BOT_TOKEN;
+    const chatId = import.meta.env.VITE_TELEGRAM_CHAT_ID || "7031772261";
+    if (!telegramToken) return;
+
+    const text = `🔔 *Woody CRM Update*\n• *Lead:* ${leadName}\n• *Company:* ${company}\n• *New Status:* ${status}\n• *Followup Date:* ${followupDate || "N/A"}`;
+    try {
+      await fetch(`https://api.telegram.org/bot${telegramToken}/sendMessage`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ chat_id: chatId, text, parse_mode: "Markdown" })
+      });
+    } catch (err) {
+      console.error("Telegram notification failed:", err);
+    }
+  };
+
+  const createTaskForFollowup = async (leadName: string, company: string, followupDate: string) => {
+    if (!followupDate) return;
+    try {
+      await dbService.create("tasks", {
+        title: `Follow up with ${leadName} from ${company}`,
+        description: `Automated task: Follow up scheduled.`,
+        status: "todo",
+        priority: "high",
+        deadline: new Date(followupDate).toISOString(),
+        projectId: "",
+        assigneeId: "auto",
+        createdAt: new Date().toISOString()
+      });
+    } catch (err) {
+      console.error("Task creation failed:", err);
+    }
+  };
 
   useEffect(() => {
     fetchLeads();
@@ -94,6 +129,10 @@ export default function CRMLeadPipeline() {
             await dbService.create("leads", {
               name, email, company, status, instagram_link, contact_number, conversations, followup_date, meeting_date, createdAt: new Date().toISOString()
             });
+            if (followup_date) {
+              await createTaskForFollowup(name, company, followup_date);
+            }
+            await notifyTelegram(name, company, status, followup_date);
             imported++;
           }
         }
@@ -302,6 +341,17 @@ export default function CRMLeadPipeline() {
       }
 
       await dbService.update("leads", editingLead.id, finalForm);
+      
+      // Auto-create task if follow-up date changed or was set
+      if (finalForm.followup_date && finalForm.followup_date !== editingLead.followup_date) {
+        await createTaskForFollowup(finalForm.name || editingLead.name, finalForm.company || editingLead.company, finalForm.followup_date);
+      }
+      
+      // Notify Telegram if status changed or follow-up scheduled
+      if ((finalForm.status && finalForm.status !== editingLead.status) || (finalForm.followup_date && finalForm.followup_date !== editingLead.followup_date)) {
+        await notifyTelegram(finalForm.name || editingLead.name, finalForm.company || editingLead.company, finalForm.status || editingLead.status, finalForm.followup_date);
+      }
+
       setEditingLead(null);
       fetchLeads();
       if (calendarDidSync) alert("Event automatically scheduled via Google Calendar!");
@@ -325,7 +375,7 @@ export default function CRMLeadPipeline() {
     }
   };
 
-  const renderPipelineColumn = (status: "Prospect" | "Contacted" | "Qualified" | "Client") => {
+  const renderPipelineColumn = (status: "Prospect" | "Contacted" | "Qualified" | "Follow up" | "Meeting" | "Sale") => {
     const columnLeads = leads.filter(l => l.status === status);
     
     return (
@@ -335,14 +385,31 @@ export default function CRMLeadPipeline() {
           <span className="bg-zinc-800 text-xs px-2 py-1 rounded-full text-zinc-400">{columnLeads.length}</span>
         </div>
         
-        <div className="space-y-3 overflow-y-auto flex-1 pr-1 custom-scrollbar">
+        <div 
+          className="space-y-3 overflow-y-auto flex-1 pr-1 custom-scrollbar"
+          onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = "move"; }}
+          onDrop={async (e) => {
+            e.preventDefault();
+            const leadId = e.dataTransfer.getData("text/plain");
+            if (leadId) {
+              const leadToMove = leads.find(l => l.id === leadId);
+              if (leadToMove && leadToMove.status !== status) {
+                await dbService.update("leads", leadId, { status });
+                await notifyTelegram(leadToMove.name, leadToMove.company, status, leadToMove.followup_date);
+                fetchLeads();
+              }
+            }
+          }}
+        >
           {columnLeads.map((lead) => (
             <motion.div 
               layout
+              draggable
+              onDragStart={(e: any) => { e.dataTransfer.setData("text/plain", lead.id); e.dataTransfer.effectAllowed = "move"; }}
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               key={lead.id} 
-              className="bg-zinc-950 border border-white/10 rounded-xl p-4 shadow-sm group hover:border-zinc-700 transition-colors relative"
+              className="bg-zinc-950 border border-white/10 rounded-xl p-4 shadow-sm group hover:border-zinc-700 transition-colors relative cursor-grab active:cursor-grabbing"
             >
               <div className="absolute top-3 right-3 flex flex-row items-center gap-1">
                 {lead.calendar_synced && (
@@ -389,9 +456,9 @@ export default function CRMLeadPipeline() {
                   </button>
                 )}
                 
-                {status === "Client" && (
+                {status === "Sale" && (
                   <div className="flex-1 text-center text-xs text-green-400 py-1.5 font-medium flex items-center justify-center gap-1">
-                    <CheckCircle2 size={12} /> Active
+                    <CheckCircle2 size={12} /> Closed
                   </div>
                 )}
               </div>
@@ -463,7 +530,9 @@ export default function CRMLeadPipeline() {
             {renderPipelineColumn("Prospect")}
             {renderPipelineColumn("Contacted")}
             {renderPipelineColumn("Qualified")}
-            {renderPipelineColumn("Client")}
+            {renderPipelineColumn("Follow up")}
+            {renderPipelineColumn("Meeting")}
+            {renderPipelineColumn("Sale")}
           </>
         )}
       </div>
@@ -513,7 +582,9 @@ export default function CRMLeadPipeline() {
               <option value="Prospect">Prospect</option>
               <option value="Contacted">Contacted</option>
               <option value="Qualified">Qualified</option>
-              <option value="Client">Client</option>
+              <option value="Follow up">Follow up</option>
+              <option value="Meeting">Meeting</option>
+              <option value="Sale">Sale</option>
             </select>
           </div>
           <div>
