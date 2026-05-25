@@ -322,12 +322,12 @@ export default function ClientPortal({
                   Services
                 </p>
                 <div className="flex flex-wrap gap-2 mt-2">
-                  {client.services?.map((s) => (
+                  {(Array.isArray(client.services) ? client.services : typeof client.services === 'string' ? client.services.split(',') : []).map((s) => (
                     <span
                       key={s}
                       className="px-2 py-1 bg-zinc-800 rounded-md text-xs border border-zinc-700"
                     >
-                      {s}
+                      {s.trim()}
                     </span>
                   ))}
                 </div>

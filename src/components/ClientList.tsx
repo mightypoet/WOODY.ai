@@ -22,6 +22,8 @@ export default function ClientList({ user }: { user: User }) {
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [newClient, setNewClient] = useState({
     name: "",
@@ -50,26 +52,36 @@ export default function ClientList({ user }: { user: User }) {
     e.preventDefault();
     if (!newClient.name || !newClient.brand) return;
 
-    await dbService.create("clients", {
-      ...newClient,
-      social_media_calendar_link: newClient.socialMediaSheetUrl,
-      services: newClient.services
-        .split(",")
-        .map((s) => s.trim())
-        .filter(Boolean),
-      createdAt: new Date().toISOString(),
-    });
+    setSubmitError(null);
+    setIsSubmitting(true);
 
-    setNewClient({
-      name: "",
-      brand: "",
-      contact: "",
-      contactNumber: "",
-      services: "",
-      paymentTerms: "",
-      socialMediaSheetUrl: "",
-    });
-    setIsModalOpen(false);
+    try {
+      await dbService.create("clients", {
+        ...newClient,
+        social_media_calendar_link: newClient.socialMediaSheetUrl,
+        services: newClient.services
+          .split(",")
+          .map((s) => s.trim())
+          .filter(Boolean),
+        createdAt: new Date().toISOString(),
+      });
+
+      setNewClient({
+        name: "",
+        brand: "",
+        contact: "",
+        contactNumber: "",
+        services: "",
+        paymentTerms: "",
+        socialMediaSheetUrl: "",
+      });
+      setIsModalOpen(false);
+    } catch (err: any) {
+      console.error("Error creating client:", err);
+      setSubmitError(err.message || "Failed to create client. Make sure the 'clients' table exists.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleDeleteClient = async (id: string) => {
@@ -176,13 +188,13 @@ export default function ClientList({ user }: { user: User }) {
 
                 <div className="pt-4 border-t border-zinc-800 flex items-center justify-between">
                   <div className="flex -space-x-2">
-                    {client.services?.map((service, idx) => (
+                    {(Array.isArray(client.services) ? client.services : typeof client.services === 'string' ? client.services.split(',') : []).map((service, idx) => (
                       <div
                         key={idx}
                         className="w-6 h-6 rounded-full bg-zinc-800 border border-zinc-900 flex items-center justify-center text-[8px] font-bold uppercase"
-                        title={service}
+                        title={service.trim()}
                       >
-                        {service[0]}
+                        {service.trim()[0] || ""}
                       </div>
                     ))}
                   </div>
@@ -311,11 +323,19 @@ export default function ClientList({ user }: { user: User }) {
               placeholder="Paste shared Google Sheets or calendar URL"
             />
           </div>
+          
+          {submitError && (
+            <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-xl text-red-500 text-sm">
+              {submitError}
+            </div>
+          )}
+
           <button
             type="submit"
-            className="w-full py-3 bg-white text-black font-semibold rounded-xl hover:bg-zinc-200 transition-colors mt-4"
+            disabled={isSubmitting}
+            className="w-full py-3 bg-indigo-600 text-white font-semibold rounded-xl hover:bg-indigo-500 transition-all disabled:opacity-50 disabled:cursor-not-allowed mt-4 shadow-lg shadow-indigo-500/20 active:scale-[0.98]"
           >
-            Create Client
+            {isSubmitting ? "Creating..." : "Create Client"}
           </button>
         </form>
       </Modal>
