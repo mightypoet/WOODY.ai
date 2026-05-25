@@ -34,6 +34,19 @@ export const dbService = {
             fallbackData.createdAt = fallbackData.created_at;
             delete fallbackData.created_at;
           }
+
+          if (error.message.includes('clientId')) {
+            fallbackData.client_id = fallbackData.clientId;
+            delete fallbackData.clientId;
+          }
+          if (error.message.includes('projectId')) {
+            fallbackData.project_id = fallbackData.projectId;
+            delete fallbackData.projectId;
+          }
+          if (error.message.includes('assigneeId')) {
+            fallbackData.assignee_id = fallbackData.assigneeId;
+            delete fallbackData.assigneeId;
+          }
           
           const { data: retryData, error: retryError } = await supabase
             .from(table)
@@ -80,6 +93,19 @@ export const dbService = {
             fallbackData.updatedAt = fallbackData.updated_at;
             delete fallbackData.updated_at;
           }
+
+          if (error.message.includes('clientId')) {
+            fallbackData.client_id = fallbackData.clientId;
+            delete fallbackData.clientId;
+          }
+          if (error.message.includes('projectId')) {
+            fallbackData.project_id = fallbackData.projectId;
+            delete fallbackData.projectId;
+          }
+          if (error.message.includes('assigneeId')) {
+            fallbackData.assignee_id = fallbackData.assigneeId;
+            delete fallbackData.assigneeId;
+          }
           
           const { error: retryError } = await supabase
             .from(table)
@@ -104,13 +130,26 @@ export const dbService = {
         .eq('id', id);
       
       if (error) {
-        if (error.code === 'PGRST204' || error.message.includes('does not exist')) {
+        if (error.code === 'PGRST204' || error.message.includes('does not exist') || error.message.includes('schema cache')) {
           console.warn(`Column missing in table ${table}, trying fallback without transient fields...`, error);
           const fallbackData = { ...data };
           delete fallbackData.contactNumber;
           delete fallbackData.socialMediaSheetUrl;
           delete fallbackData.social_media_calendar_link;
           delete fallbackData.annotation;
+          
+          if (error.message.includes('clientId')) {
+            fallbackData.client_id = fallbackData.clientId;
+            delete fallbackData.clientId;
+          }
+          if (error.message.includes('projectId')) {
+            fallbackData.project_id = fallbackData.projectId;
+            delete fallbackData.projectId;
+          }
+          if (error.message.includes('assigneeId')) {
+            fallbackData.assignee_id = fallbackData.assigneeId;
+            delete fallbackData.assigneeId;
+          }
           
           const { error: retryError } = await supabase
             .from(table)
