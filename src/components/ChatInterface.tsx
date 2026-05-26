@@ -41,7 +41,7 @@ export default function ChatInterface({ user }: { user: User }) {
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState<Message[]>([
     {
-      id: "1",
+      id: "00000000-0000-0000-0000-000000000001",
       role: "assistant",
       content: `Hello ${user.name}, I'm WOODY. How can I help you manage Reelywood today?`,
     },

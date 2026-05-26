@@ -67,19 +67,30 @@ export default function ProjectBoard({ user }: { user: User }) {
     }
   };
 
+  const isValidUUID = (str: string | null) => str ? /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str) : false;
+
   const handleCreateTask = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newTask.title || !selectedProjectId) return;
+    if (!newTask.title) {
+      alert("Task title is required.");
+      return;
+    }
+    if (!selectedProjectId) {
+      alert("Please select a project first before adding a task.");
+      return;
+    }
     
     const assigneeId = newTask.assigneeId || user.id;
     
     try {
-      await dbService.create('tasks', { 
+      const taskPayload: any = { 
         ...newTask, 
         projectId: selectedProjectId, 
         assigneeId: assigneeId,
         createdAt: new Date().toISOString() 
-      });
+      };
+
+      await dbService.create('tasks', taskPayload);
 
       // Notify assignee if it's someone else
       if (assigneeId !== user.id && assigneeId !== (user as any).uid) {
@@ -133,85 +144,99 @@ export default function ProjectBoard({ user }: { user: User }) {
         </div>
       </header>
 
-      <div className="flex-1 flex gap-6 overflow-x-auto pb-4">
-        {columns.map((col) => (
-          <div key={col.id} className="flex-1 min-w-[320px] bg-zinc-900/50 border border-zinc-800 rounded-2xl flex flex-col">
-            <div className="p-4 border-b border-zinc-800 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <col.icon size={16} className={col.color} />
-                <h3 className="font-semibold text-sm">{col.label}</h3>
-                <span className="text-[10px] bg-zinc-800 px-1.5 py-0.5 rounded text-zinc-500 font-bold">
-                  {projectTasks.filter(t => t.status === col.id).length}
-                </span>
+      {projects.length === 0 ? (
+        <div className="flex-1 flex flex-col items-center justify-center border border-dashed border-zinc-800 rounded-2xl bg-zinc-900/20 text-zinc-500">
+          <Briefcase size={48} className="mb-4 text-zinc-700" />
+          <p className="mb-6 font-medium">Create a project to start tracking tasks</p>
+          <button 
+            onClick={() => setIsProjectModalOpen(true)}
+            className="flex items-center gap-2 bg-white text-black font-semibold px-6 py-3 rounded-xl hover:bg-zinc-200 transition-colors"
+          >
+            <Plus size={18} />
+            New Project
+          </button>
+        </div>
+      ) : (
+        <div className="flex-1 flex gap-6 overflow-x-auto pb-4">
+          {columns.map((col) => (
+            <div key={col.id} className="flex-1 min-w-[320px] bg-zinc-900/50 border border-zinc-800 rounded-2xl flex flex-col mt-2">
+              <div className="p-4 border-b border-zinc-800 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <col.icon size={16} className={col.color} />
+                  <h3 className="font-semibold text-sm">{col.label}</h3>
+                  <span className="text-[10px] bg-zinc-800 px-1.5 py-0.5 rounded text-zinc-500 font-bold">
+                    {projectTasks.filter(t => t.status === col.id).length}
+                  </span>
+                </div>
+                <button className="text-zinc-500 hover:text-white transition-colors">
+                  <MoreHorizontal size={16} />
+                </button>
               </div>
-              <button className="text-zinc-500 hover:text-white transition-colors">
-                <MoreHorizontal size={16} />
-              </button>
-            </div>
 
-            <div className="flex-1 overflow-y-auto p-4 space-y-4">
-              <AnimatePresence mode="popLayout">
-                {projectTasks.filter(t => t.status === col.id).map((task, i) => (
-                  <motion.div
-                    key={task.id}
-                    layout
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, scale: 0.95 }}
-                    className="bg-zinc-900 border border-zinc-800 p-4 rounded-xl space-y-4 shadow-sm hover:border-zinc-700 transition-all cursor-grab active:cursor-grabbing group relative"
-                    onClick={() => {
-                      const nextStatus = col.id === 'todo' ? 'in_progress' : col.id === 'in_progress' ? 'completed' : 'todo';
-                      updateTaskStatus(task.id, nextStatus);
-                    }}
-                  >
-                    <div className="space-y-2">
-                      <div className="flex items-start justify-between">
-                        <h4 className="text-sm font-medium leading-tight group-hover:text-white transition-colors pr-6">{task.title}</h4>
-                        <div className="flex items-center gap-2">
-                           <div className={cn(
-                            "w-2 h-2 rounded-full",
-                            task.priority === 'high' ? "bg-white" :
-                            task.priority === 'medium' ? "bg-zinc-400" :
-                            "bg-zinc-600"
-                          )} />
-                          <button 
-                            onClick={(e) => handleDeleteTask(task.id, e)}
-                            className="text-zinc-700 hover:text-white transition-colors p-1"
-                          >
-                            <Trash2 size={12} />
-                          </button>
+              <div className="flex-1 overflow-y-auto p-4 space-y-4">
+                <AnimatePresence mode="popLayout">
+                  {projectTasks.filter(t => t.status === col.id).map((task, i) => (
+                    <motion.div
+                      key={task.id}
+                      layout
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, scale: 0.95 }}
+                      className="bg-zinc-900 border border-zinc-800 p-4 rounded-xl space-y-4 shadow-sm hover:border-zinc-700 transition-all cursor-grab active:cursor-grabbing group relative"
+                      onClick={() => {
+                        const nextStatus = col.id === 'todo' ? 'in_progress' : col.id === 'in_progress' ? 'completed' : 'todo';
+                        updateTaskStatus(task.id, nextStatus);
+                      }}
+                    >
+                      <div className="space-y-2">
+                        <div className="flex items-start justify-between">
+                          <h4 className="text-sm font-medium leading-tight group-hover:text-white transition-colors pr-6">{task.title}</h4>
+                          <div className="flex items-center gap-2">
+                             <div className={cn(
+                              "w-2 h-2 rounded-full",
+                              task.priority === 'high' ? "bg-white" :
+                              task.priority === 'medium' ? "bg-zinc-400" :
+                              "bg-zinc-600"
+                            )} />
+                            <button 
+                              onClick={(e) => handleDeleteTask(task.id, e)}
+                              className="text-zinc-700 hover:text-white transition-colors p-1"
+                            >
+                              <Trash2 size={12} />
+                            </button>
+                          </div>
+                        </div>
+                        <p className="text-xs text-zinc-500 line-clamp-2">{task.description || 'No description provided.'}</p>
+                      </div>
+
+                      <div className="pt-4 border-t border-zinc-800 flex items-center justify-between">
+                        <div className="flex items-center gap-2 text-[10px] text-zinc-500 font-mono uppercase tracking-widest">
+                          <Clock size={12} />
+                          {task.deadline ? safeFormat(task.deadline, 'MMM d') : 'No deadline'}
+                        </div>
+                        <div className="w-6 h-6 rounded-full bg-zinc-800 border border-zinc-900 flex items-center justify-center text-[8px] font-bold uppercase">
+                          {task.assigneeId ? user.name[0] : '?'}
                         </div>
                       </div>
-                      <p className="text-xs text-zinc-500 line-clamp-2">{task.description || 'No description provided.'}</p>
-                    </div>
-
-                    <div className="pt-4 border-t border-zinc-800 flex items-center justify-between">
-                      <div className="flex items-center gap-2 text-[10px] text-zinc-500 font-mono uppercase tracking-widest">
-                        <Clock size={12} />
-                        {task.deadline ? safeFormat(task.deadline, 'MMM d') : 'No deadline'}
-                      </div>
-                      <div className="w-6 h-6 rounded-full bg-zinc-800 border border-zinc-900 flex items-center justify-center text-[8px] font-bold uppercase">
-                        {task.assigneeId ? user.name[0] : '?'}
-                      </div>
-                    </div>
-                  </motion.div>
-                ))}
-              </AnimatePresence>
-              
-              <button 
-                onClick={() => {
-                  setNewTask({ ...newTask, status: col.id as any });
-                  setIsTaskModalOpen(true);
-                }}
-                className="w-full py-3 border border-dashed border-zinc-800 rounded-xl text-xs text-zinc-500 hover:text-white hover:border-zinc-700 transition-all flex items-center justify-center gap-2"
-              >
-                <Plus size={14} />
-                Add Task
-              </button>
+                    </motion.div>
+                  ))}
+                </AnimatePresence>
+                
+                <button 
+                  onClick={() => {
+                    setNewTask({ ...newTask, status: col.id as any });
+                    setIsTaskModalOpen(true);
+                  }}
+                  className="w-full py-3 border border-dashed border-zinc-800 rounded-xl text-xs text-zinc-500 hover:text-white hover:border-zinc-700 transition-all flex items-center justify-center gap-2"
+                >
+                  <Plus size={14} />
+                  Add Task
+                </button>
+              </div>
             </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
 
       {/* New Project Modal */}
       <Modal isOpen={isProjectModalOpen} onClose={() => setIsProjectModalOpen(false)} title="New Project">
