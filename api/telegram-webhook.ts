@@ -88,8 +88,51 @@ export default async function handler(req: any, res: any) {
       await reply(responseText);
     } 
     
+    else if (text === '/todos') {
+      const { data: tasks, error } = await supabase
+        .from('tasks')
+        .select('*')
+        .neq('status', 'completed');
+
+      if (error) throw error;
+
+      if (!tasks || tasks.length === 0) {
+        await reply("✅ No pending To-Dos found!");
+        return res.status(200).send("OK");
+      }
+
+      let responseText = "📋 *Pending To-Dos:*\n\n";
+      tasks.forEach((t, index) => {
+        responseText += `${index + 1}. ${t.title || 'Untitled task'} - _${t.status || 'todo'}_\n`;
+      });
+      
+      await reply(responseText);
+    }
+
+    else if (text === '/leads') {
+      const { data: leads, error } = await supabase
+        .from('leads')
+        .select('*')
+        .neq('status', 'Won')
+        .neq('status', 'Lost');
+
+      if (error) throw error;
+
+      if (!leads || leads.length === 0) {
+        await reply("✅ No active Leads found!");
+        return res.status(200).send("OK");
+      }
+
+      let responseText = "🎯 *Active Leads:*\n\n";
+      leads.forEach((l, index) => {
+        responseText += `${index + 1}. ${l.name || 'Unnamed lead'} (${l.company || 'No Company'}) - _${l.status || 'N/A'}_\n`;
+      });
+      
+      await reply(responseText);
+    }
+    
     else {
-      await reply("❓ Unknown command. Try typing `/projects` or `/payments`!");
+      await reply("❓ Unknown command. Try typing `/projects`, `/payments`, `/todos`, or `/leads`!");
     }
 
     return res.status(200).send("OK");

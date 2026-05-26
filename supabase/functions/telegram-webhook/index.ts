@@ -45,7 +45,36 @@ serve(async (req) => {
       }).format(d);
     }
 
-    const messageText = `🔔 *Woody CRM Update*\n• *Lead:* ${leadName}\n• *Company:* ${company}\n• *New Status:* ${newStatus}\n• *Followup Date:* ${followupDateStr}`;
+    let messageText = `🔔 *Woody CRM Update*\n• *Lead:* ${leadName}\n• *Company:* ${company}\n• *New Status:* ${newStatus}\n• *Followup Date:* ${followupDateStr}`;
+
+    // Fetch pending tasks
+    const { data: tasks, error: taskError } = await supabase
+      .from('tasks')
+      .select('*')
+      .neq('status', 'completed')
+      .limit(5);
+
+    if (!taskError && tasks && tasks.length > 0) {
+      messageText += `\n\n📋 *Pending To-Dos:*\n`;
+      tasks.forEach((t, i) => {
+        messageText += `${i + 1}. ${t.title || 'Untitled'} - _${t.status}_\n`;
+      });
+    }
+
+    // Fetch active leads
+    const { data: leads, error: leadError } = await supabase
+      .from('leads')
+      .select('*')
+      .neq('status', 'Won')
+      .neq('status', 'Lost')
+      .limit(5);
+
+    if (!leadError && leads && leads.length > 0) {
+      messageText += `\n🎯 *Active Leads (Top 5):*\n`;
+      leads.forEach((l, i) => {
+        messageText += `${i + 1}. ${l.name || 'Unnamed'} (${l.company || 'N/A'})\n`;
+      });
+    }
 
     const tgResponse = await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
       method: "POST",
