@@ -1,37 +1,177 @@
-import React from 'react';
-import { motion } from 'motion/react';
-import { Calendar as CalendarIcon, Clock, AlertCircle } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
+import { Calendar as CalendarIcon, Clock, ChevronLeft, ChevronRight, CheckCircle2 } from 'lucide-react';
+import { dbService } from '../services/dbService';
+import { Task } from '../types';
+import {
+  format,
+  startOfMonth,
+  endOfMonth,
+  eachDayOfInterval,
+  isSameMonth,
+  isToday,
+  isSameDay,
+  startOfWeek,
+  endOfWeek,
+  addMonths,
+  subMonths,
+} from 'date-fns';
+import { clsx, type ClassValue } from 'clsx';
+import { twMerge } from 'tailwind-merge';
+
+function cn(...inputs: ClassValue[]) {
+  return twMerge(clsx(inputs));
+}
 
 export default function CalendarView() {
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [currentDate, setCurrentDate] = useState(new Date());
+  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+
+  useEffect(() => {
+    const unsub = dbService.subscribe("tasks", (data: Task[]) => {
+      setTasks(data.filter(t => t.deadline));
+    });
+    return () => unsub();
+  }, []);
+
+  const monthStart = startOfMonth(currentDate);
+  const monthEnd = endOfMonth(currentDate);
+  const startDate = startOfWeek(monthStart);
+  const endDate = endOfWeek(monthEnd);
+  const days = eachDayOfInterval({ start: startDate, end: endDate });
+
+  const nextMonth = () => setCurrentDate(addMonths(currentDate, 1));
+  const prevMonth = () => setCurrentDate(subMonths(currentDate, 1));
+
+  const selectedDateTasks = selectedDate 
+    ? tasks.filter(t => t.deadline && isSameDay(new Date(t.deadline), selectedDate)) 
+    : [];
+
   return (
-    <div className="h-full flex flex-col p-8 space-y-8">
-      <header className="flex items-center justify-between">
+    <div className="h-full flex flex-col p-8 space-y-8 overflow-y-auto">
+      <header className="flex items-center justify-between shrink-0">
         <div className="space-y-1">
           <h2 className="text-3xl font-bold tracking-tight">Calendar</h2>
           <p className="text-zinc-500 text-sm">
             Operational event dates and scheduled client tasks.
           </p>
         </div>
+        <div className="flex items-center gap-4 bg-zinc-900 border border-zinc-800 rounded-xl p-1">
+          <button onClick={prevMonth} className="p-2 text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-lg transition-colors">
+            <ChevronLeft size={20} />
+          </button>
+          <span className="font-semibold text-sm w-32 text-center">
+            {format(currentDate, "MMMM yyyy")}
+          </span>
+          <button onClick={nextMonth} className="p-2 text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-lg transition-colors">
+            <ChevronRight size={20} />
+          </button>
+        </div>
       </header>
 
-      <div className="flex-1 flex flex-col items-center justify-center border border-zinc-800 border-dashed rounded-3xl bg-zinc-900/30">
-        <motion.div 
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="text-center space-y-4 max-w-md"
-        >
-          <div className="w-16 h-16 bg-zinc-800 rounded-2xl flex items-center justify-center mx-auto shadow-inner border border-zinc-700">
-            <CalendarIcon size={32} className="text-zinc-400" />
+      <div className="flex-1 flex gap-8 min-h-0">
+        <div className="flex-1 bg-zinc-900 border border-zinc-800 rounded-3xl p-8 flex flex-col min-h-0">
+          <div className="grid grid-cols-7 gap-4 mb-4">
+            {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => (
+              <div key={day} className="text-center font-bold text-xs text-zinc-500 uppercase tracking-widest">
+                {day}
+              </div>
+            ))}
           </div>
-          <h3 className="text-xl font-bold text-white">Calendar Sync Infrastructure</h3>
-          <p className="text-sm text-zinc-400 leading-relaxed">
-            The calendar view is currently serving as a dedicated structural placeholder. Operational event dates from synced Client Social Media Calendars will populate here once the integration is fully connected.
-          </p>
-          <div className="flex items-center justify-center gap-2 text-xs font-mono text-zinc-500 uppercase tracking-widest pt-4">
-            <Clock size={14} />
-            <span>Pending Integration</span>
+          <div className="grid grid-cols-7 gap-4 flex-1">
+            {days.map((day, i) => {
+              const isCurrentMonth = isSameMonth(day, monthStart);
+              const isTodayDate = isToday(day);
+              const dayTasks = tasks.filter((t) => t.deadline && isSameDay(new Date(t.deadline), day));
+
+              return (
+                <div
+                  key={i}
+                  onClick={() => setSelectedDate(day)}
+                  className={cn(
+                    "flex flex-col rounded-2xl p-2 relative cursor-pointer border transition-all h-24 overflow-hidden",
+                    !isCurrentMonth ? "border-transparent opacity-30" : "border-zinc-800/50 bg-zinc-800/20",
+                    isTodayDate && "ring-2 ring-indigo-500 bg-indigo-500/10",
+                    (!isTodayDate && isCurrentMonth) && "hover:border-zinc-600 hover:bg-zinc-800/50",
+                    (selectedDate && isSameDay(selectedDate, day)) && "border-zinc-500 ring-1 ring-zinc-500"
+                  )}
+                >
+                  <span className={cn(
+                    "text-sm font-semibold mb-1",
+                    isTodayDate ? "text-indigo-400" : "text-zinc-400"
+                  )}>
+                    {format(day, "d")}
+                  </span>
+                  
+                  <div className="flex-1 flex flex-col gap-1 overflow-hidden pointer-events-none">
+                    {dayTasks.slice(0, 3).map(task => (
+                      <div key={task.id} className={cn(
+                        "text-[10px] truncate px-1.5 py-0.5 rounded-md",
+                        task.status === "completed" ? "bg-green-500/10 text-green-400" : "bg-white/10 text-zinc-300"
+                      )}>
+                        {task.title}
+                      </div>
+                    ))}
+                    {dayTasks.length > 3 && (
+                      <div className="text-[9px] text-zinc-500 font-medium px-1">
+                        +{dayTasks.length - 3} more
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
           </div>
-        </motion.div>
+        </div>
+
+        <div className="w-80 flex flex-col gap-4 min-h-0 overflow-y-auto">
+          {selectedDate ? (
+            <>
+              <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6">
+                <h3 className="font-bold text-lg mb-1">{format(selectedDate, "EEEE")}</h3>
+                <p className="text-sm text-zinc-500">{format(selectedDate, "MMMM d, yyyy")}</p>
+              </div>
+
+              {selectedDateTasks.length === 0 ? (
+                <div className="flex-1 flex flex-col items-center justify-center text-zinc-500 border border-zinc-800 border-dashed rounded-2xl bg-zinc-900/30">
+                  <CalendarIcon size={32} className="opacity-20 mb-4" />
+                  <p className="text-sm">No tasks scheduled.</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {selectedDateTasks.map(t => (
+                    <div key={t.id} className="bg-zinc-900 border border-zinc-800 rounded-xl p-4 cursor-pointer hover:border-zinc-700 transition-colors">
+                      <div className="flex items-start justify-between gap-2 mb-2">
+                        <h4 className={cn(
+                          "font-semibold text-sm",
+                          t.status === "completed" && "line-through text-zinc-500"
+                        )}>{t.title}</h4>
+                        {t.status === "completed" && <CheckCircle2 size={16} className="text-green-500 shrink-0" />}
+                      </div>
+                      {t.description && (
+                        <p className="text-xs text-zinc-500 line-clamp-2">{t.description}</p>
+                      )}
+                      <div className="flex justify-between items-center mt-4">
+                        <span className={cn(
+                          "text-[10px] uppercase font-bold tracking-widest px-2 py-1 rounded-md",
+                          t.status === "completed" ? "bg-green-500/10 text-green-500" : "bg-amber-500/10 text-amber-500"
+                        )}>
+                          {t.status.replace('_', ' ')}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </>
+          ) : (
+            <div className="flex-1 flex flex-col items-center justify-center text-zinc-500 border border-zinc-800 border-dashed rounded-2xl bg-zinc-900/30 p-6 text-center space-y-4">
+              <CalendarIcon size={32} className="opacity-20" />
+              <p className="text-sm">Select a date on the calendar to view scheduled tasks.</p>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
