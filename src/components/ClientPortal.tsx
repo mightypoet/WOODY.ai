@@ -99,11 +99,14 @@ export default function ClientPortal({
         rows = simulateDemoData();
       }
 
-      let projectId = projects[0]?.id;
+      const expectedProjectName = `${client.name} - Social Media Calendar`;
+      let existingProject = projects.find(p => p.name === expectedProjectName);
+      let projectId = existingProject?.id;
+      
       if (!projectId) {
         projectId = await dbService.create("projects", {
           clientId: client.id,
-          name: `${client.name} - Social Media Calendar`,
+          name: expectedProjectName,
           status: 'active',
           createdAt: new Date().toISOString()
         });
