@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Client, Project, Task } from "../types";
 import { dbService } from "../services/dbService";
+import { supabase } from "../utils/supabase";
 import { calendarService, sheetsService, tasksService } from "../services/workspaceService";
 import {
   ArrowLeft,
@@ -100,10 +101,11 @@ export default function ClientPortal({
       }
 
       const expectedProjectName = `${client.name} - Social Media Calendar`;
-      let existingProject = projects.find(p => p.name === expectedProjectName);
+      let existingProject = projects.find(p => p.clientId === client.id && p.name === expectedProjectName);
       let projectId = existingProject?.id;
       
       if (!projectId) {
+        // use dbService wrapper in case it's mocking
         projectId = await dbService.create("projects", {
           clientId: client.id,
           name: expectedProjectName,
@@ -111,6 +113,8 @@ export default function ClientPortal({
           createdAt: new Date().toISOString()
         });
       }
+
+      const tasksToInsert = [];
 
       for (const row of rows) {
         const title = row[0];
@@ -120,7 +124,13 @@ export default function ClientPortal({
 
         let deadline = '';
         if (dateStr) {
-          const d = new Date(dateStr);
+          const parts = dateStr.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+          let d;
+          if (parts) {
+            d = new Date(`${parts[3]}-${parts[2]}-${parts[1]}T12:00:00Z`);
+          } else {
+            d = new Date(dateStr);
+          }
           if (!isNaN(d.getTime())) {
             deadline = d.toISOString();
           }
@@ -129,14 +139,18 @@ export default function ClientPortal({
         const exists = tasks.some(t => t.projectId === projectId && t.title === title);
         
         if (!exists) {
-          await dbService.create("tasks", {
+          tasksToInsert.push({
+            clientId: client.id,
+            client_id: client.id,
             projectId,
+            project_id: projectId,
             title,
             description: notes,
             status: 'todo',
             priority: 'medium',
             assigneeId: '00000000-0000-0000-0000-000000000000',
-            deadline,
+            deadline: deadline,
+            due_date: deadline,
             createdAt: new Date().toISOString()
           });
 
@@ -164,6 +178,28 @@ export default function ClientPortal({
           }
         }
       }
+
+      if (tasksToInsert.length > 0) {
+        // Try the batched insert directly if possible via supabase to respect the strict data logic. 
+        const { data: insertedData, error } = await supabase.from("tasks").insert(tasksToInsert).select();
+        if (error) {
+          throw new Error(error.message);
+        }
+        
+        // UI Refresh: Immediately refetch and update state
+        if (insertedData) {
+          const newMappedTasks = insertedData.map((row: any) => ({
+            ...row,
+            clientId: row.client_id || row.clientId,
+            projectId: row.project_id || row.projectId,
+            dueDate: row.due_date || row.deadline || row.dueDate,
+            deadline: row.due_date || row.deadline || row.dueDate,
+          }));
+          
+          setTasks(prev => [...prev, ...newMappedTasks]);
+        }
+      }
+
       alert("Success! Calendar and Tasks have been synced.");
     } catch (error: any) {
       console.error(error);
