@@ -2,13 +2,15 @@ import { getAccessToken } from './googleAuth';
 
 // Generic fetcher with Auth
 async function fetchGoogleAPI(url: string, options: RequestInit = {}) {
-  const token = await getAccessToken();
-  if (!token) throw new Error("No Google access token available");
-
+  let token = await getAccessToken();
+  if (token === null || token === undefined || token === '' || token === 'null' || token === 'undefined') {
+    throw new Error("Please connect your Google Account first.");
+  }
+  
   const res = await fetch(url, {
     ...options,
     headers: {
-      'Authorization': `Bearer ${token}`,
+      'Authorization': `Bearer ${token.trim()}`,
       'Content-Type': 'application/json',
       ...options.headers,
     },
@@ -17,10 +19,15 @@ async function fetchGoogleAPI(url: string, options: RequestInit = {}) {
   if (!res.ok) {
     const errorBody = await res.text();
     console.error("Google API Error:", res.status, res.statusText, errorBody);
+    if (res.status === 401) {
+      // Clear invalid token
+      localStorage.removeItem('google_provider_token');
+      window.dispatchEvent(new Event('google-auth-revoked'));
+      throw new Error("Google access token expired or invalid. Please reconnect your Google account.");
+    }
     throw new Error(`Google API request failed: ${res.status} ${res.statusText} - ${errorBody}`);
   }
 
-  // Some operations (like DELETE) may return empty responses
   if (res.status === 204) return null;
   return await res.json();
 }
@@ -94,10 +101,10 @@ export const tasksService = {
   getTasks: async (taskListId: string = '@default') => {
     return fetchGoogleAPI(`https://tasks.googleapis.com/tasks/v1/lists/${taskListId}/tasks`);
   },
-  createTask: async (title: string, notes?: string, taskListId: string = '@default') => {
+  createTask: async (title: string, notes?: string, taskListId: string = '@default', due?: string) => {
     return fetchGoogleAPI(`https://tasks.googleapis.com/tasks/v1/lists/${taskListId}/tasks`, {
       method: 'POST',
-      body: JSON.stringify({ title, notes })
+      body: JSON.stringify({ title, notes, due })
     });
   }
 };

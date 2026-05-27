@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Client, Project, Task } from "../types";
 import { dbService } from "../services/dbService";
-import { calendarService, sheetsService } from "../services/workspaceService";
+import { calendarService, sheetsService, tasksService } from "../services/workspaceService";
 import {
   ArrowLeft,
   Calendar as CalendarIcon,
@@ -135,7 +135,7 @@ export default function ClientPortal({
             description: notes,
             status: 'todo',
             priority: 'medium',
-            assigneeId: 'system',
+            assigneeId: '00000000-0000-0000-0000-000000000000',
             deadline,
             createdAt: new Date().toISOString()
           });
@@ -144,14 +144,22 @@ export default function ClientPortal({
             try {
               const startDate = new Date(deadline);
               const endDate = new Date(startDate.getTime() + 60 * 60 * 1000); 
-              await calendarService.createEvent(
-                `Social Media: ${title} (${client.name})`,
-                notes,
-                startDate.toISOString(),
-                endDate.toISOString()
-              );
+              await Promise.all([
+                calendarService.createEvent(
+                  `Social Media: ${title} (${client.name})`,
+                  notes,
+                  startDate.toISOString(),
+                  endDate.toISOString()
+                ),
+                tasksService.createTask(
+                  `Social Media: ${title} (${client.name})`,
+                  notes,
+                  '@default',
+                  startDate.toISOString()
+                )
+              ]);
             } catch (err) {
-              console.warn("Google Calendar sync failed, saving locally only.");
+              console.warn("Google Workspace sync failed, saving locally only.", err);
             }
           }
         }

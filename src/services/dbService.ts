@@ -41,7 +41,7 @@ export const dbService = {
         console.warn(`Supabase actual create error for ${table}:`, error.message, error.code);
         
         // Fallback to local memory on any database error
-        const mockId = payload.id || 'mock-id-' + Math.random().toString(36).substring(7);
+        const mockId = payload.id || crypto.randomUUID();
         const newRecord = { ...payload, id: mockId };
         mockStorage[table] = [...mockStorage[table], newRecord];
         notifySubscribers(table);
@@ -52,7 +52,7 @@ export const dbService = {
       console.error(`Supabase create error in ${table}:`, error);
       // Fallback
       if (!mockStorage[table]) mockStorage[table] = [];
-      const mockId = data.id || 'mock-id-' + Math.random().toString(36).substring(7);
+      const mockId = data.id || crypto.randomUUID();
       const newRecord = { ...data, id: mockId };
       mockStorage[table] = [...mockStorage[table], newRecord];
       notifySubscribers(table);

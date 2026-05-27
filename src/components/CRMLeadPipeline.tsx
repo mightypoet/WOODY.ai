@@ -51,8 +51,8 @@ export default function CRMLeadPipeline() {
         status: "todo",
         priority: "high",
         deadline: new Date(followupDate).toISOString(),
-        projectId: "",
-        assigneeId: "auto",
+        projectId: "00000000-0000-0000-0000-000000000000",
+        assigneeId: "00000000-0000-0000-0000-000000000000",
         createdAt: new Date().toISOString()
       });
     } catch (err) {

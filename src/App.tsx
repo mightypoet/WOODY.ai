@@ -66,9 +66,17 @@ export default function App() {
       }
     );
     
+    const handleAuthRevoked = () => {
+      setAuthError("Google access token expired or missing. Please reconnect your Google account.");
+      setUser(null);
+    };
+
+    window.addEventListener('google-auth-revoked', handleAuthRevoked);
+
     return () => {
       // Unsubscribe wrapper
       unsubscribe();
+      window.removeEventListener('google-auth-revoked', handleAuthRevoked);
     }
   }, []);
 
