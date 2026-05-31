@@ -212,16 +212,19 @@ export default function ChatInterface({ user }: { user: User }) {
             );
 
             if (project) {
-              await dbService.create("tasks", {
+              const taskPayload: any = {
                 title: action.payload.title,
                 description: action.payload.description || "",
                 priority: action.payload.priority || "medium",
-                deadline: action.payload.deadline || "",
                 projectId: project.id,
                 status: "todo",
                 assigneeId: user.id, // Default to current user
                 createdAt: now,
-              });
+              };
+              if (action.payload.deadline) {
+                taskPayload.deadline = action.payload.deadline;
+              }
+              await dbService.create("tasks", taskPayload);
               results.push(
                 `Created task: ${action.payload.title} in ${project.name}`,
               );
@@ -274,19 +277,22 @@ export default function ChatInterface({ user }: { user: User }) {
             );
 
             if (client) {
-              await dbService.create("payments", {
+              const paymentPayload: any = {
                 clientId: client.id,
                 totalAmount:
                   action.payload.total_amount || action.payload.amount || 0,
                 paidAmount: action.payload.paid_amount || 0,
-                dueDate: action.payload.due_date || "",
                 status:
                   (action.payload.paid_amount || 0) >=
                   (action.payload.total_amount || action.payload.amount || 0)
                     ? "paid"
                     : "pending",
                 createdAt: now,
-              });
+              };
+              if (action.payload.due_date) {
+                paymentPayload.dueDate = action.payload.due_date;
+              }
+              await dbService.create("payments", paymentPayload);
               results.push(`Tracked payment for ${client.name}`);
             } else {
               results.push(
@@ -446,14 +452,17 @@ export default function ChatInterface({ user }: { user: User }) {
               break;
             }
 
-            const taskId = await dbService.create("tasks", {
+            const taskPayload: any = {
               title: action.payload.task_name,
               assigneeId: targetUser.uid || targetUser.id,
-              deadline: action.payload.deadline || "",
               status: "todo",
               priority: "medium",
               createdAt: now,
-            });
+            };
+            if (action.payload.deadline) {
+              taskPayload.deadline = action.payload.deadline;
+            }
+            const taskId = await dbService.create("tasks", taskPayload);
 
             // Send notification
             await notificationService.sendNotification(

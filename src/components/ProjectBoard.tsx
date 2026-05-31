@@ -89,6 +89,7 @@ export default function ProjectBoard({ user }: { user: User }) {
         assigneeId: assigneeId,
         createdAt: new Date().toISOString() 
       };
+      if (!taskPayload.deadline) delete taskPayload.deadline;
 
       await dbService.create('tasks', taskPayload);
 

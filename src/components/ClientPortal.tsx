@@ -46,9 +46,18 @@ export default function ClientPortal({
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
 
+  const parseDate = (d: string) => {
+    if (!d) return new Date();
+    if (d.length === 10 && d.includes("-")) {
+      const [y, m, day] = d.split('-');
+      return new Date(parseInt(y), parseInt(m)-1, parseInt(day));
+    }
+    return new Date(d);
+  };
+
   useEffect(() => {
-    const unsubProjects = dbService.subscribe("projects", (data: Project[]) => {
-      setProjects(data.filter((p) => p.clientId === client.id));
+    const unsubProjects = dbService.subscribe("projects", (data: any[]) => {
+      setProjects(data.filter((p) => String(p.clientId || p.client_id) === String(client.id)));
     });
 
     const unsubTasks = dbService.subscribe("tasks", (data: Task[]) => {
@@ -101,7 +110,7 @@ export default function ClientPortal({
       }
 
       const expectedProjectName = `${client.name} - Social Media Calendar`;
-      let existingProject = projects.find(p => p.clientId === client.id && p.name === expectedProjectName);
+      let existingProject = projects.find((p: any) => String(p.clientId || p.client_id) === String(client.id) && p.name === expectedProjectName);
       let projectId = existingProject?.id;
       
       if (!projectId) {
@@ -138,21 +147,23 @@ export default function ClientPortal({
 
         const exists = tasks.some(t => t.projectId === projectId && t.title === title);
         
+        const isUUID = (str: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(str));
+
         if (!exists) {
-          tasksToInsert.push({
-            clientId: client.id,
-            client_id: client.id,
-            projectId,
-            project_id: projectId,
+          const taskObj: any = {
             title,
             description: notes,
             status: 'todo',
             priority: 'medium',
-            assigneeId: '00000000-0000-0000-0000-000000000000',
-            deadline: deadline,
-            due_date: deadline,
             createdAt: new Date().toISOString()
-          });
+          };
+          if (deadline) taskObj.deadline = deadline;
+          
+          taskObj.projectId = projectId;
+          // Optionally add assignee if needed
+          taskObj.assigneeId = '00000000-0000-0000-0000-000000000000';
+
+          tasksToInsert.push(taskObj);
 
           if (deadline) {
             try {
@@ -180,23 +191,26 @@ export default function ClientPortal({
       }
 
       if (tasksToInsert.length > 0) {
+        console.log("Attempting to insert tasks:", JSON.stringify(tasksToInsert, null, 2));
         // Try the batched insert directly if possible via supabase to respect the strict data logic. 
         const { data: insertedData, error } = await supabase.from("tasks").insert(tasksToInsert).select();
+
         if (error) {
           throw new Error(error.message);
         }
         
         // UI Refresh: Immediately refetch and update state
         if (insertedData) {
-          const newMappedTasks = insertedData.map((row: any) => ({
-            ...row,
-            clientId: row.client_id || row.clientId,
-            projectId: row.project_id || row.projectId,
-            dueDate: row.due_date || row.deadline || row.dueDate,
-            deadline: row.due_date || row.deadline || row.dueDate,
-          }));
-          
-          setTasks(prev => [...prev, ...newMappedTasks]);
+          setTasks((prev) => {
+            const newTasks = insertedData.map((row: any) => ({
+              ...row,
+              projectId: row.projectId || row.project_id || projectId,
+              clientId: row.clientId || row.client_id || client.id,
+              dueDate: row.due_date || row.deadline || row.dueDate, // Ensure camelCase mappings
+              deadline: row.due_date || row.deadline || row.dueDate
+            })).filter((mappedRow: any) => !prev.some(t => t.id === mappedRow.id));
+            return [...prev, ...newTasks];
+          });
         }
       }
 
@@ -209,63 +223,22 @@ export default function ClientPortal({
     }
   };
 
-  const clientTasks = tasks.filter((t) =>
-    projects.some((p) => p.id === t.projectId),
+  const clientTasks = tasks.map((t: any) => ({
+    ...t,
+    projectId: t.projectId || t.project_id,
+    clientId: t.clientId || t.client_id,
+    deadline: t.deadline || t.due_date || t.dueDate
+  })).filter((t: any) =>
+    projects.some((p: any) => (String(p.id) === String(t.projectId)) || (String(p.id) === String(t.project_id))),
   );
 
-  useEffect(() => {
-    const checkNotifications = async () => {
-      const now = new Date();
-      for (const task of clientTasks) {
-        if (task.status === "completed" || !task.deadline) continue;
-        
-        const deadline = new Date(task.deadline);
-        // If deadline is reached or passed
-        if (now.getTime() >= deadline.getTime()) {
-          const tier = task.notificationTier || 0;
-          if (tier < 3) {
-            const lastNotif = task.lastNotificationAt ? new Date(task.lastNotificationAt) : new Date(0);
-            
-            // Wait at least 30s between tiers for demo purposes (normally would be hours/days)
-            if (now.getTime() - lastNotif.getTime() > 30000) {
-              const newTier = tier + 1;
-              
-              const token = import.meta.env.VITE_TELEGRAM_BOT_TOKEN;
-              const chatId = import.meta.env.VITE_TELEGRAM_CHAT_ID;
-              
-              const text = `🚨 *Reminder [${newTier}/3]*\n*Client:* ${client.name}\n*Post Title:* ${task.title}\n*Due Date:* ${format(deadline, "MMM d, yyyy")}`;
 
-              if (token && chatId) {
-                try {
-                  await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ chat_id: chatId, text, parse_mode: 'Markdown' })
-                  });
-                } catch (e) {
-                  console.error("Telegram error:", e);
-                }
-              }
-              
-              await dbService.update("tasks", task.id, {
-                notificationTier: newTier,
-                lastNotificationAt: now.toISOString()
-              });
-            }
-          }
-        }
-      }
-    };
-    
-    // Check every 10 seconds
-    const interval = setInterval(checkNotifications, 10000);
-    // Initial check
-    checkNotifications();
-    return () => clearInterval(interval);
+  useEffect(() => {
+    // Check notifications logic disabled as per user request to stop spam
   }, [clientTasks]);
 
   const selectedDateTasks = selectedDate 
-    ? clientTasks.filter(t => t.deadline && isSameDay(new Date(t.deadline), selectedDate)) 
+    ? clientTasks.filter(t => t.deadline && isSameDay(parseDate(t.deadline), selectedDate)) 
     : [];
 
   const completedTasks = clientTasks.filter(
@@ -465,7 +438,7 @@ export default function ClientPortal({
                 const isTodayDate = isToday(day);
 
                 const hasDeadline = clientTasks.some(
-                  (t) => t.deadline && isSameDay(new Date(t.deadline), day),
+                  (t) => t.deadline && isSameDay(parseDate(t.deadline), day),
                 );
 
                 return (

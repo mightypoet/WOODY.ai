@@ -40,10 +40,11 @@ export default function PaymentTracker({ user }: { user: User }) {
   const handleCreatePayment = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newPayment.clientId || !newPayment.totalAmount) return;
-    await dbService.create('payments', {
-      ...newPayment,
-      createdAt: new Date().toISOString()
-    });
+    
+    const payload: any = { ...newPayment, createdAt: new Date().toISOString() };
+    if (!payload.dueDate) delete payload.dueDate;
+    
+    await dbService.create('payments', payload);
     setIsModalOpen(false);
     setNewPayment({ clientId: '', totalAmount: 0, paidAmount: 0, dueDate: '', status: 'pending' });
   };

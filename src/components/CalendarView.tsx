@@ -51,14 +51,45 @@ export default function CalendarView() {
   const nextMonth = () => setCurrentDate(addMonths(currentDate, 1));
   const prevMonth = () => setCurrentDate(subMonths(currentDate, 1));
 
-  const selectedDateTasks = selectedDate 
-    ? tasks.filter(t => t.deadline && isSameDay(new Date(t.deadline), selectedDate)) 
-    : [];
+  const selectedDateStr = selectedDate ? format(selectedDate, 'yyyy-MM-dd') : null;
 
-  const getClientForTask = (taskId: string, projectId?: string) => {
+  const parseDate = (d: string) => {
+    if (!d) return new Date();
+    if (d.length === 10 && d.includes("-")) {
+      const [y, m, day] = d.split('-');
+      return new Date(parseInt(y), parseInt(m)-1, parseInt(day));
+    }
+    return new Date(d);
+  };
+
+  const tasksByDay = useMemo(() => {
+    const map = new Map<string, Task[]>();
+    tasks.forEach(t => {
+      if (t.deadline) {
+        const dateKey = format(parseDate(t.deadline), 'yyyy-MM-dd');
+        if (!map.has(dateKey)) {
+          map.set(dateKey, []);
+        }
+        map.get(dateKey)!.push(t);
+      }
+    });
+    return map;
+  }, [tasks]);
+
+  const clientByProject = useMemo(() => {
+    const map = new Map<string, Client | null>();
+    const clientMap = new Map<string, Client>();
+    clients.forEach(c => clientMap.set(c.id, c));
+    
+    projects.forEach(p => {
+       map.set(p.id, clientMap.get(p.clientId) || null);
+    });
+    return map;
+  }, [projects, clients]);
+
+  const getClientForTask = (projectId?: string) => {
     if (!projectId) return null;
-    const project = projects.find(p => p.id === projectId);
-    return project ? clients.find(c => c.id === project.clientId) : null;
+    return clientByProject.get(projectId) || null;
   };
 
   const colors = ["bg-indigo-500", "bg-emerald-500", "bg-rose-500", "bg-amber-500", "bg-cyan-500", "bg-fuchsia-500", "bg-blue-500"];
@@ -70,6 +101,8 @@ export default function CalendarView() {
     }
     return colors[Math.abs(hash) % colors.length];
   };
+
+  const selectedDateTasks = selectedDateStr ? tasksByDay.get(selectedDateStr) || [] : [];
 
   return (
     <div className="h-full flex flex-col p-8 space-y-8 overflow-y-auto">
@@ -106,7 +139,8 @@ export default function CalendarView() {
             {days.map((day, i) => {
               const isCurrentMonth = isSameMonth(day, monthStart);
               const isTodayDate = isToday(day);
-              const dayTasks = tasks.filter((t) => t.deadline && isSameDay(new Date(t.deadline), day));
+              const dayStr = format(day, 'yyyy-MM-dd');
+              const dayTasks = tasksByDay.get(dayStr) || [];
 
               return (
                 <div
@@ -129,7 +163,7 @@ export default function CalendarView() {
                   
                   <div className="flex-1 flex flex-col gap-1 overflow-hidden pointer-events-none">
                     {dayTasks.slice(0, 3).map(task => {
-                      const client = getClientForTask(task.id, task.projectId);
+                      const client = getClientForTask(task.projectId);
                       const colorClass = client ? getClientColor(client.id) : "bg-zinc-600";
                       
                       return (
@@ -172,7 +206,7 @@ export default function CalendarView() {
               ) : (
                 <div className="space-y-3">
                   {selectedDateTasks.map(t => {
-                    const client = getClientForTask(t.id, t.projectId);
+                    const client = getClientForTask(t.projectId);
                     const colorClass = client ? getClientColor(client.id) : "bg-zinc-600";
                     return (
                       <div key={t.id} className="bg-zinc-900 border border-zinc-800 rounded-xl p-4 cursor-pointer hover:border-zinc-700 transition-colors">
