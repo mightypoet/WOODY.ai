@@ -7,8 +7,7 @@ const token = process.env.TELEGRAM_BOT_TOKEN || process.env.VITE_TELEGRAM_BOT_TO
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 import { GoogleGenAI } from '@google/genai';
-import { dbService } from '../src/services/dbService';
-
+import { dbService } from '../src/services/dbService.js';
 export default async function handler(req: any, res: any) {
   if (req.method !== "POST") {
     return res.status(405).send("Method Not Allowed");
