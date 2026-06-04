@@ -31,7 +31,10 @@ export default function Dashboard({ user }: { user: User }) {
     checkEmailStatus();
 
     const unsubClients = dbService.subscribe('clients', (data) => setStats(prev => ({ ...prev, clients: data.length })));
-    const unsubProjects = dbService.subscribe('projects', (data) => setStats(prev => ({ ...prev, projects: data.length })));
+    const unsubProjects = dbService.subscribe('projects', (data) => {
+      const uniqueProjects = Array.from(new Map(data.map(p => [p.name, p])).values());
+      setStats(prev => ({ ...prev, projects: uniqueProjects.length }));
+    });
     const unsubTasks = dbService.subscribe('tasks', (data) => {
       setStats(prev => ({ ...prev, tasks: data.length }));
       setRecentTasks(data.slice(0, 5));

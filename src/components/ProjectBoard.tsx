@@ -21,9 +21,10 @@ export default function ProjectBoard({ user }: { user: User }) {
 
   useEffect(() => {
     const unsubProjects = dbService.subscribe('projects', (data) => {
-      setProjects(data);
-      if (data.length > 0 && !selectedProjectId) {
-        setSelectedProjectId(data[0].id);
+      const uniqueProjects = Array.from(new Map(data.map(p => [p.name, p])).values());
+      setProjects(uniqueProjects);
+      if (uniqueProjects.length > 0 && !selectedProjectId) {
+        setSelectedProjectId(uniqueProjects[0].id);
       }
       setLoading(false);
     });
@@ -39,7 +40,7 @@ export default function ProjectBoard({ user }: { user: User }) {
     };
   }, []);
 
-  const projectTasks = tasks.filter(t => t.projectId === selectedProjectId);
+  const projectTasks = tasks.filter(t => String(t.projectId) === String(selectedProjectId));
   const columns = [
     { id: 'todo', label: 'To Do', icon: Clock, color: 'text-zinc-500' },
     { id: 'in_progress', label: 'In Progress', icon: AlertCircle, color: 'text-zinc-300' },
@@ -129,7 +130,13 @@ export default function ProjectBoard({ user }: { user: User }) {
           <select 
             value={selectedProjectId || ''} 
             onChange={(e) => setSelectedProjectId(e.target.value)}
-            className="bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-zinc-700 transition-all"
+            className="bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-zinc-700 transition-all text-white outline-none cursor-pointer appearance-none pr-8 shadow-sm hover:border-zinc-600"
+            style={{
+              backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23a1a1aa' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E")`,
+              backgroundRepeat: 'no-repeat',
+              backgroundPosition: 'right 0.75rem center',
+              backgroundSize: '16px 16px'
+            }}
           >
             {projects.map(p => (
               <option key={p.id} value={p.id}>{p.name}</option>

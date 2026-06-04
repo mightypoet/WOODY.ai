@@ -6,6 +6,9 @@ const ALLOWED_CHAT_ID = process.env.TELEGRAM_CHAT_ID || process.env.VITE_TELEGRA
 const token = process.env.TELEGRAM_BOT_TOKEN || process.env.VITE_TELEGRAM_BOT_TOKEN || '8308910231:AAGAo1WdPrbqzsLDkqgd2rdA5g4SKRwx9z4';
 const supabase = createClient(supabaseUrl, supabaseKey);
 
+import { GoogleGenAI } from '@google/genai';
+import { dbService } from '../src/services/dbService';
+
 export default async function handler(req: any, res: any) {
   if (req.method !== "POST") {
     return res.status(405).send("Method Not Allowed");
@@ -40,7 +43,16 @@ export default async function handler(req: any, res: any) {
     };
 
     // Execute Routing Architecture
-    if (text === '/projects') {
+    if (text.startsWith('/chat')) {
+      const query = text.replace('/chat', '').trim();
+      if (!query) {
+        await reply('Please provide a message after /chat. Example: /chat What are the active projects?');
+        return res.status(200).send('OK');
+      }
+      await reply('Thinking... 🧠');
+      await processChatCommand(query, reply);
+    }
+    else if (text === '/projects') {
       const { data: projects, error } = await supabase
         .from('projects')
         .select('*');
@@ -140,5 +152,118 @@ export default async function handler(req: any, res: any) {
   } catch (err: any) {
     console.error('Webhook Runtime Error:', err.message);
     return res.status(200).send(`Error: ${err.message}`);
+  }
+}
+async function processChatCommand(query: string, reply: (msg: string) => Promise<void>) {
+  try {
+    const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY });
+    const tools: any[] = [{
+      functionDeclarations: [
+        {
+          name: 'getProjectDetails',
+          description: 'Get project details by project identifier (ID or name)',
+          parameters: {
+            type: 'OBJECT',
+            properties: {
+              project_identifier: { type: 'STRING' }
+            },
+            required: ['project_identifier']
+          }
+        },
+        {
+          name: 'createTask',
+          description: 'Create a new task in a project',
+          parameters: {
+            type: 'OBJECT',
+            properties: {
+              project_identifier: { type: 'STRING' },
+              task_description: { type: 'STRING' }
+            },
+            required: ['project_identifier', 'task_description']
+          }
+        },
+        {
+          name: 'updateProjectBudget',
+          description: 'Update the budget of a project',
+          parameters: {
+            type: 'OBJECT',
+            properties: {
+              project_identifier: { type: 'STRING' },
+              amount: { type: 'NUMBER' }
+            },
+            required: ['project_identifier', 'amount']
+          }
+        }
+      ]
+    }];
+
+    const systemInstruction = "You are Woody, an AI assistant for Reelywood. You help manage operations. When discussing or updating financial amounts for projects, you must strictly use the label 'Total Budget' and never 'Financials' or 'Received Amount'.";
+    
+    let chatParams: any = {
+      model: 'gemini-2.5-flash',
+      contents: [{ role: 'user', parts: [{ text: query }] }],
+      config: {
+        tools,
+        systemInstruction,
+      }
+    };
+
+    let response = await ai.models.generateContent(chatParams);
+
+    if (response.functionCalls && response.functionCalls.length > 0) {
+      const call = response.functionCalls[0];
+      const { name, args } = call as any;
+      let toolResult: any;
+
+      const findProject = async (idOrName: string) => {
+        let projects = await dbService.list('projects');
+        let p = projects.find((p: any) => String(p.id) === String(idOrName) || (p.name && p.name.toLowerCase().includes(String(idOrName).toLowerCase())));
+        return p;
+      };
+
+      if (name === 'getProjectDetails') {
+        const p = await findProject(args.project_identifier);
+        toolResult = p ? p : { error: 'Project not found' };
+      } else if (name === 'createTask') {
+        const p = await findProject(args.project_identifier);
+        if (p) {
+          const t = { projectId: p.id, title: args.task_description, status: 'todo', createdAt: new Date().toISOString() };
+          const taskRes = await dbService.create('tasks', t);
+          toolResult = { success: true, task: taskRes, project_name: p.name };
+        } else {
+          toolResult = { error: 'Project not found' };
+        }
+      } else if (name === 'updateProjectBudget') {
+        const p = await findProject(args.project_identifier);
+        if (p) {
+          await dbService.update('projects', p.id, { total_budget: args.amount });
+          toolResult = { success: true, new_budget: args.amount, project_name: p.name };
+        } else {
+          toolResult = { error: 'Project not found' };
+        }
+      }
+
+      chatParams.contents.push(response.candidates[0].content);
+      chatParams.contents.push({
+        role: 'user',
+        parts: [{
+          functionResponse: {
+            name: name,
+            response: toolResult || {}
+          }
+        }]
+      });
+
+      response = await ai.models.generateContent(chatParams);
+    }
+    
+    if (response.text) {
+      await reply(response.text);
+    } else {
+      await reply('I processed that, but have no text to reply.');
+    }
+  } catch (err: any) {
+    console.error('AI Error:', err);
+    await reply('❌ Error processing AI request: ' + err.message);
   }
 }

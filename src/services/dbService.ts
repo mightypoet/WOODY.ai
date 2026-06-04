@@ -9,6 +9,26 @@ function notifySubscribers(table: string) {
   }
 }
 
+export const toUUID = (id: any) => {
+  if (!id) return id;
+  const str = String(id);
+  if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str)) return str;
+  if (/^\d+$/.test(str)) {
+    return `00000000-0000-0000-0000-${str.padStart(12, '0')}`;
+  }
+  return id;
+};
+
+export const fromUUID = (uuid: any) => {
+  if (!uuid) return uuid;
+  const str = String(uuid);
+  const match = str.match(/^00000000-0000-0000-0000-0*(\d+)$/);
+  if (match) {
+    return match[1];
+  }
+  return uuid;
+};
+
 export async function testConnection() {
   console.log("Supabase connection active.");
 }
@@ -26,6 +46,12 @@ export const dbService = {
         finalPayload = {};
         if (payload.id !== undefined) finalPayload.id = payload.id;
         if (payload.createdAt !== undefined) finalPayload.createdAt = payload.createdAt;
+      }
+      if (table === 'tasks') {
+        if (finalPayload.projectId) finalPayload.projectId = toUUID(finalPayload.projectId);
+        if (finalPayload.project_id) finalPayload.project_id = toUUID(finalPayload.project_id);
+        if (finalPayload.clientId) finalPayload.clientId = toUUID(finalPayload.clientId);
+        if (finalPayload.client_id) finalPayload.client_id = toUUID(finalPayload.client_id);
       }
 
       // Initialize mock storage array if not exists
@@ -73,6 +99,12 @@ export const dbService = {
         if (payload.id !== undefined) finalPayload.id = payload.id;
         if (payload.createdAt !== undefined) finalPayload.createdAt = payload.createdAt;
       }
+      if (table === 'tasks') {
+        if (finalPayload.projectId) finalPayload.projectId = toUUID(finalPayload.projectId);
+        if (finalPayload.project_id) finalPayload.project_id = toUUID(finalPayload.project_id);
+        if (finalPayload.clientId) finalPayload.clientId = toUUID(finalPayload.clientId);
+        if (finalPayload.client_id) finalPayload.client_id = toUUID(finalPayload.client_id);
+      }
 
       // Initialize mock storage array if not exists
       if (!mockStorage[table]) mockStorage[table] = [];
@@ -118,6 +150,12 @@ export const dbService = {
         finalPayload = {};
         if (payload.id !== undefined) finalPayload.id = payload.id;
         if (payload.createdAt !== undefined) finalPayload.createdAt = payload.createdAt;
+      }
+      if (table === 'tasks') {
+        if (finalPayload.projectId) finalPayload.projectId = toUUID(finalPayload.projectId);
+        if (finalPayload.project_id) finalPayload.project_id = toUUID(finalPayload.project_id);
+        if (finalPayload.clientId) finalPayload.clientId = toUUID(finalPayload.clientId);
+        if (finalPayload.client_id) finalPayload.client_id = toUUID(finalPayload.client_id);
       }
       
       // Initialize mock storage array if not exists
@@ -169,14 +207,29 @@ export const dbService = {
       if (error || !data) {
         if (mockStorage[table]) {
            const mockItem = mockStorage[table].find(item => item.id === id);
-           if (mockItem) return mockItem;
+           if (mockItem) returnData = mockItem;
         }
+      }
+      if (table === 'tasks' && returnData) {
+        if (returnData.projectId) returnData.projectId = fromUUID(returnData.projectId);
+        if (returnData.project_id) returnData.project_id = fromUUID(returnData.project_id);
+        if (returnData.clientId) returnData.clientId = fromUUID(returnData.clientId);
+        if (returnData.client_id) returnData.client_id = fromUUID(returnData.client_id);
       }
       return returnData || null;
     } catch (error) {
       if (mockStorage[table]) {
          const mockItem = mockStorage[table].find(item => item.id === id);
-         if (mockItem) return mockItem;
+         if (mockItem) {
+           let returnData = { ...mockItem };
+           if (table === 'tasks') {
+             if (returnData.projectId) returnData.projectId = fromUUID(returnData.projectId);
+             if (returnData.project_id) returnData.project_id = fromUUID(returnData.project_id);
+             if (returnData.clientId) returnData.clientId = fromUUID(returnData.clientId);
+             if (returnData.client_id) returnData.client_id = fromUUID(returnData.client_id);
+           }
+           return returnData;
+         }
       }
       return null;
     }
@@ -213,7 +266,17 @@ export const dbService = {
          console.warn(`Supabase list error for ${table}:`, error.message);
          return [];
       }
-      return data || [];
+      let result = data || [];
+      if (table === 'tasks') {
+        result = result.map(t => ({
+          ...t,
+          projectId: fromUUID(t.projectId),
+          project_id: fromUUID(t.project_id),
+          clientId: fromUUID(t.clientId),
+          client_id: fromUUID(t.client_id)
+        }));
+      }
+      return result;
     } catch (error) {
       console.error(`Supabase list error in ${table}:`, error);
       return [];
