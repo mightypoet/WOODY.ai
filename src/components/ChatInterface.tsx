@@ -565,12 +565,31 @@ export default function ChatInterface({ user }: { user: User }) {
           }
 
           case "SEND_EMAIL": {
-            console.log("Mock Email Sent:", {
-              to: action.payload.to_email,
-              subject: action.payload.subject,
-              body: action.payload.body,
-            });
-            results.push(`Successfully sent email to ${action.payload.to_email} with subject "${action.payload.subject}"`);
+            try {
+              const res = await fetch("https://api.resend.com/emails", {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  Authorization: `Bearer ${import.meta.env.VITE_RESEND_API_KEY}`,
+                },
+                body: JSON.stringify({
+                  from: "onboarding@resend.dev",
+                  to: action.payload.to_email,
+                  subject: action.payload.subject,
+                  html: action.payload.body,
+                }),
+              });
+
+              if (!res.ok) {
+                const errData = await res.json().catch(() => ({}));
+                throw new Error(errData.message || `Failed with status ${res.status}`);
+              }
+              
+              results.push(`Successfully sent email to ${action.payload.to_email} with subject "${action.payload.subject}"`);
+            } catch (error: any) {
+              console.error("Error sending email:", error);
+              results.push(`Failed to send email to ${action.payload.to_email}: ${error.message}`);
+            }
             break;
           }
 
