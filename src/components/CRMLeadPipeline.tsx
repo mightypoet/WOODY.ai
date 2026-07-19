@@ -1,26 +1,12 @@
 import React, { useState, useEffect } from "react";
-import { User } from "../types";
+import { User, Lead } from "../types";
 import { getAccessToken } from "../services/googleAuth";
 import { dbService } from "../services/dbService";
 import { motion } from "motion/react";
 import { Users, Mail, Calendar, FileSpreadsheet, Plus, Upload, Loader2, ArrowRight, CheckCircle2, RotateCcw, Pencil, X, CalendarCheck } from "lucide-react";
 import Modal from "./Modal";
-
-interface Lead {
-  id: string;
-  name: string;
-  email: string;
-  status: "Prospect" | "Contacted" | "Qualified" | "Follow up" | "Meeting" | "Sale";
-  company: string;
-  lastContactDate?: string;
-  nextStep?: string;
-  instagram_link?: string;
-  contact_number?: string;
-  conversations?: string;
-  followup_date?: string;
-  meeting_date?: string;
-  calendar_synced?: boolean;
-}
+import LeadLog from "./crm/LeadLog";
+import VisibilityDashboard from "./crm/VisibilityDashboard";
 
 export default function CRMLeadPipeline() {
   const [leads, setLeads] = useState<Lead[]>([]);
@@ -35,8 +21,10 @@ export default function CRMLeadPipeline() {
   const [isCreatingLead, setIsCreatingLead] = useState(false);
   const [formPage, setFormPage] = useState(0);
 
+  const [viewMode, setViewMode] = useState<"kanban" | "list" | "dashboard">("kanban");
+
   const handleCreateLeadClick = () => {
-    setEditForm({ status: "Prospect" });
+    setEditForm({ status: "New" });
     setEditingLead(null);
     setIsCreatingLead(true);
     setFormPage(0);
@@ -113,7 +101,7 @@ export default function CRMLeadPipeline() {
           const name = row[0] || "";
           const email = row[1] || "";
           const company = row[2] || "";
-          const status = (row[3] as any) || "Prospect";
+          const status = (row[3] as any) || "New";
           const instagram_link = row[4] || "";
           const contact_number = row[5] || "";
           const conversations = row[6] || "";
@@ -122,7 +110,7 @@ export default function CRMLeadPipeline() {
           
           if (name && email) {
             await dbService.create("leads", {
-              name, email, company, status, instagram_link, contact_number, conversations, followup_date, meeting_date, createdAt: new Date().toISOString()
+              name, email, company, status, instagram_link, contact_number, conversations, followup_date, meeting_date, createdAt: new Date().toISOString(), last_touch_date: new Date().toISOString()
             });
             if (followup_date) {
               await createTaskForFollowup(name, company, followup_date);
@@ -184,9 +172,10 @@ export default function CRMLeadPipeline() {
 
       // Update lead status
       await dbService.update("leads", lead.id, { 
-        status: "Contacted",
+        status: "Proposal",
         lastContactDate: new Date().toISOString(),
-        nextStep: "Follow up"
+        last_touch_date: new Date().toISOString(),
+        nextStep: "Follow-Up Ongoing"
       });
       fetchLeads();
       alert("Email sent successfully!");
@@ -236,8 +225,9 @@ export default function CRMLeadPipeline() {
       }
       
       await dbService.update("leads", lead.id, { 
-        status: "Qualified",
-        nextStep: "Discovery Call Scheduled"
+        status: "Meeting Follow-Up",
+        nextStep: "Discovery Call Scheduled",
+        last_touch_date: new Date().toISOString()
       });
       fetchLeads();
       alert("Event scheduled and invite sent via Google Calendar!");
@@ -274,8 +264,9 @@ export default function CRMLeadPipeline() {
 
       // Update lead
       await dbService.update("leads", lead.id, { 
-        status: "Client",
-        nextStep: "Onboarding"
+        status: "Won",
+        nextStep: "Onboarding",
+        last_touch_date: new Date().toISOString()
       });
       
       fetchLeads();
@@ -294,11 +285,11 @@ export default function CRMLeadPipeline() {
 
   const handleLeadStatusChange = async (lead: Lead, newStatus: Lead["status"]) => {
     let calendarDidSync = false;
-    let updatedLead = { ...lead, status: newStatus };
+    let updatedLead = { ...lead, status: newStatus, last_touch_date: new Date().toISOString() };
 
-    // Auto-schedule if status is Contacted and meeting_date is present and not yet synced
+    // Auto-schedule if status is Proposal and meeting_date is present and not yet synced
     if (
-      newStatus === "Contacted" && 
+      newStatus === "Proposal" && 
       lead.meeting_date && 
       !lead.calendar_synced
     ) {
@@ -355,16 +346,27 @@ export default function CRMLeadPipeline() {
     setIsUpdating(true);
     try {
       if (isCreatingLead) {
-        const newLeadDetails = {
+          const newLeadDetails = {
           name: editForm.name || "",
           email: editForm.email || "",
           company: editForm.company || "",
-          status: editForm.status || "Prospect",
+          status: editForm.status || "New",
           instagram_link: editForm.instagram_link || "",
           contact_number: editForm.contact_number || "",
           conversations: editForm.conversations || "",
           followup_date: editForm.followup_date || null,
-          meeting_date: editForm.meeting_date || null
+          meeting_date: editForm.meeting_date || null,
+          setter_name: editForm.setter_name || "",
+          closer_name: editForm.closer_name || "",
+          first_contact_date: editForm.first_contact_date || null,
+          date_of_meeting: editForm.date_of_meeting || null,
+          meeting_status: editForm.meeting_status || "",
+          call_outcome: editForm.call_outcome || "",
+          loss_reason: editForm.loss_reason || "",
+          total_deal_value: editForm.total_deal_value || 0,
+          cash_collected: editForm.cash_collected || 0,
+          commission_percentage: editForm.commission_percentage || 0,
+          last_touch_date: new Date().toISOString()
         };
         await dbService.create("leads", newLeadDetails);
         if (newLeadDetails.followup_date) {
@@ -373,14 +375,17 @@ export default function CRMLeadPipeline() {
         setIsCreatingLead(false);
         fetchLeads();
       } else if (editingLead) {
-        let finalForm = { ...editForm, id: editingLead.id };
+        let finalForm = { ...editForm, id: editingLead.id, last_touch_date: new Date().toISOString() };
         if (finalForm.followup_date === "") finalForm.followup_date = null as any;
         if (finalForm.meeting_date === "") finalForm.meeting_date = null as any;
+        if (finalForm.first_contact_date === "") finalForm.first_contact_date = null as any;
+        if (finalForm.date_of_meeting === "") finalForm.date_of_meeting = null as any;
+        
         let calendarDidSync = false;
 
-        // Auto-schedule if status is Contacted and meeting_date is present and not yet synced
+        // Auto-schedule if status is Proposal and meeting_date is present and not yet synced
         if (
-          finalForm.status === "Contacted" && 
+          finalForm.status === "Proposal" && 
           finalForm.meeting_date && 
           !editingLead.calendar_synced
         ) {
@@ -456,7 +461,7 @@ export default function CRMLeadPipeline() {
     }
   };
 
-  const renderPipelineColumn = (status: "Prospect" | "Contacted" | "Qualified" | "Follow up" | "Meeting" | "Sale") => {
+  const renderPipelineColumn = (status: "New" | "Proposal" | "Deposit" | "Follow-Up Ongoing" | "Meeting Follow-Up" | "Won" | "Lost") => {
     const columnLeads = leads.filter(l => l.status === status);
     
     return (
@@ -480,7 +485,12 @@ export default function CRMLeadPipeline() {
             }
           }}
         >
-          {columnLeads.map((lead) => (
+          {columnLeads.map((lead) => {
+            const isStale = 
+              (lead.status === "Follow-Up Ongoing" && lead.last_touch_date && (new Date().getTime() - new Date(lead.last_touch_date).getTime() > 7 * 24 * 60 * 60 * 1000)) ||
+              (lead.first_contact_date && lead.date_of_meeting && (new Date(lead.date_of_meeting).getTime() - new Date(lead.first_contact_date).getTime() > 4 * 24 * 60 * 60 * 1000)) ||
+              (lead.status === "Deposit" && lead.last_touch_date && (new Date().getTime() - new Date(lead.last_touch_date).getTime() > 14 * 24 * 60 * 60 * 1000));
+            return (
             <motion.div 
               layout
               draggable
@@ -488,7 +498,7 @@ export default function CRMLeadPipeline() {
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               key={lead.id} 
-              className="bg-zinc-950 border border-white/10 rounded-xl p-4 shadow-sm group hover:border-zinc-700 transition-colors relative cursor-grab active:cursor-grabbing"
+              className={`bg-zinc-950 border ${isStale ? 'border-red-500 bg-red-950/20' : 'border-white/10'} rounded-xl p-4 shadow-sm group hover:${isStale ? 'border-red-400' : 'border-zinc-700'} transition-colors relative cursor-grab active:cursor-grabbing`}
             >
               <div className="absolute top-3 right-3 flex flex-row items-center gap-1">
                 {lead.calendar_synced && (
@@ -517,32 +527,33 @@ export default function CRMLeadPipeline() {
               )}
 
               <div className="flex gap-2 mt-2 pt-2 border-t border-zinc-800/80">
-                {status === "Prospect" && (
+                {status === "New" && (
                   <button onClick={() => handleSendIntroEmail(lead)} className="flex-1 bg-zinc-800 hover:bg-zinc-700 text-white rounded text-xs py-1.5 flex items-center justify-center gap-1.5 transition-colors" title="Send Intro Email via Gmail">
                     <Mail size={12} /> Contact
                   </button>
                 )}
                 
-                {status === "Contacted" && (
+                {status === "Proposal" && (
                   <button onClick={() => handleScheduleCall(lead)} className="flex-1 bg-zinc-800 hover:bg-zinc-700 text-white rounded text-xs py-1.5 flex items-center justify-center gap-1.5 transition-colors" title="Schedule Discovery Call via Calendar">
                     <Calendar size={12} /> Schedule
                   </button>
                 )}
 
-                {status === "Qualified" && (
+                {status === "Meeting Follow-Up" && (
                   <button onClick={() => convertToClient(lead)} className="flex-1 bg-indigo-600 hover:bg-indigo-500 text-white rounded text-xs py-1.5 flex items-center justify-center gap-1.5 transition-colors shadow-[0_0_10px_rgba(79,70,229,0.2)]">
                     <CheckCircle2 size={12} /> Client
                   </button>
                 )}
                 
-                {status === "Sale" && (
+                {status === "Won" && (
                   <div className="flex-1 text-center text-xs text-green-400 py-1.5 font-medium flex items-center justify-center gap-1">
                     <CheckCircle2 size={12} /> Closed
                   </div>
                 )}
               </div>
             </motion.div>
-          ))}
+          );
+          })}
           {columnLeads.length === 0 && (
             <div className="h-24 flex items-center justify-center text-xs text-zinc-600 border border-dashed border-zinc-800 rounded-xl">
               Empty
@@ -556,11 +567,34 @@ export default function CRMLeadPipeline() {
   return (
     <div className="h-full flex flex-col bg-zinc-950 p-6">
       <header className="flex items-center justify-between shrink-0 mb-6">
-        <div>
-          <h2 className="text-2xl font-bold tracking-tight text-white flex items-center gap-2">
-            <Users className="text-indigo-400" /> CRM & Leads
-          </h2>
-          <p className="text-zinc-400 text-sm mt-1">Manage your pipeline, sync Gmail, Calendar, and convert directly to Projects.</p>
+        <div className="flex items-center gap-6">
+          <div>
+            <h2 className="text-2xl font-bold tracking-tight text-white flex items-center gap-2">
+              <Users className="text-indigo-400" /> CRM & Leads
+            </h2>
+            <p className="text-zinc-400 text-sm mt-1">Manage your pipeline, sync Gmail, Calendar, and convert directly to Projects.</p>
+          </div>
+          
+          <div className="flex bg-zinc-900 border border-white/10 rounded-xl p-1 shadow-sm">
+            <button
+              onClick={() => setViewMode("kanban")}
+              className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${viewMode === 'kanban' ? 'bg-zinc-800 text-white shadow-sm' : 'text-zinc-400 hover:text-white hover:bg-zinc-800/50'}`}
+            >
+              Kanban
+            </button>
+            <button
+              onClick={() => setViewMode("list")}
+              className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${viewMode === 'list' ? 'bg-zinc-800 text-white shadow-sm' : 'text-zinc-400 hover:text-white hover:bg-zinc-800/50'}`}
+            >
+              Lead Log
+            </button>
+            <button
+              onClick={() => setViewMode("dashboard")}
+              className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${viewMode === 'dashboard' ? 'bg-zinc-800 text-white shadow-sm' : 'text-zinc-400 hover:text-white hover:bg-zinc-800/50'}`}
+            >
+              Dashboard
+            </button>
+          </div>
         </div>
         <div className="flex gap-3">
           <button 
@@ -580,48 +614,53 @@ export default function CRMLeadPipeline() {
         </div>
       </header>
 
-      <div className="bg-zinc-900/40 border border-white/5 rounded-2xl p-4 mb-6 shrink-0 flex items-center gap-4">
-        <FileSpreadsheet className="text-emerald-500 opacity-80" />
-        <div className="flex-1">
-          <h3 className="text-sm font-semibold text-white">Import from Google Sheets</h3>
-          <p className="text-xs text-zinc-400">Import a list of prospects to start your pipeline. Sheet must have columns A: Name, B: Email, C: Company, D: Status (Up to I: Meeting Date).</p>
-        </div>
-        <form onSubmit={importFromSheets} className="flex gap-2 max-w-sm w-full">
-          <input
-            type="text"
-            required
-            value={spreadsheetId}
-            onChange={(e) => setSpreadsheetId(e.target.value)}
-            placeholder="Spreadsheet ID"
-            className="flex-1 bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-emerald-500 transition-colors text-white"
-          />
-          <button
-            type="submit"
-            disabled={importing}
-            className="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-xl text-sm font-medium flex items-center gap-2 transition-colors disabled:opacity-50"
-          >
-            {importing ? <Loader2 size={16} className="animate-spin" /> : <Upload size={16} />}
-            Import
-          </button>
-        </form>
-      </div>
-
-      <div className="flex-1 overflow-x-auto custom-scrollbar min-h-0 bg-zinc-950/20 backdrop-blur-sm rounded-2xl border border-white/5 p-4 flex gap-4">
-        {loading && leads.length === 0 ? (
-          <div className="flex-1 flex items-center justify-center">
-            <Loader2 className="animate-spin text-zinc-500 h-8 w-8" />
+      {viewMode === "kanban" && (
+        <div className="bg-zinc-900/40 border border-white/5 rounded-2xl p-4 mb-6 shrink-0 flex items-center gap-4">
+          <FileSpreadsheet className="text-emerald-500 opacity-80" />
+          <div className="flex-1">
+            <h3 className="text-sm font-semibold text-white">Import from Google Sheets</h3>
+            <p className="text-xs text-zinc-400">Import a list of prospects to start your pipeline. Sheet must have columns A: Name, B: Email, C: Company, D: Status (Up to I: Meeting Date).</p>
           </div>
-        ) : (
-          <>
-            {renderPipelineColumn("Prospect")}
-            {renderPipelineColumn("Contacted")}
-            {renderPipelineColumn("Qualified")}
-            {renderPipelineColumn("Follow up")}
-            {renderPipelineColumn("Meeting")}
-            {renderPipelineColumn("Sale")}
-          </>
-        )}
-      </div>
+          <form onSubmit={importFromSheets} className="flex gap-2 max-w-sm w-full">
+            <input
+              type="text"
+              required
+              value={spreadsheetId}
+              onChange={(e) => setSpreadsheetId(e.target.value)}
+              placeholder="Spreadsheet ID"
+              className="flex-1 bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-emerald-500 transition-colors text-white"
+            />
+            <button
+              type="submit"
+              disabled={importing}
+              className="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-xl text-sm font-medium flex items-center gap-2 transition-colors disabled:opacity-50"
+            >
+              {importing ? <Loader2 size={16} className="animate-spin" /> : <Upload size={16} />}
+              Import
+            </button>
+          </form>
+        </div>
+      )}
+
+      {loading && leads.length === 0 ? (
+        <div className="flex-1 flex items-center justify-center">
+          <Loader2 className="animate-spin text-zinc-500 h-8 w-8" />
+        </div>
+      ) : viewMode === "kanban" ? (
+        <div className="flex-1 overflow-x-auto custom-scrollbar min-h-0 bg-zinc-950/20 backdrop-blur-sm rounded-2xl border border-white/5 p-4 flex gap-4">
+          {renderPipelineColumn("New")}
+          {renderPipelineColumn("Proposal")}
+          {renderPipelineColumn("Deposit")}
+          {renderPipelineColumn("Follow-Up Ongoing")}
+          {renderPipelineColumn("Meeting Follow-Up")}
+          {renderPipelineColumn("Won")}
+          {renderPipelineColumn("Lost")}
+        </div>
+      ) : viewMode === "list" ? (
+        <LeadLog leads={leads} />
+      ) : (
+        <VisibilityDashboard leads={leads} />
+      )}
 
       <Modal
         isOpen={!!editingLead || isCreatingLead}
@@ -663,17 +702,38 @@ export default function CRMLeadPipeline() {
               <div>
                 <label className="text-xs text-zinc-500 uppercase font-mono tracking-widest">Status</label>
                 <select
-                  value={editForm.status || "Prospect"}
+                  value={editForm.status || "New"}
                   onChange={e => setEditForm({ ...editForm, status: e.target.value as Lead["status"] })}
                   className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-zinc-500 transition-all mt-1 text-white"
                 >
-                  <option value="Prospect">Prospect</option>
-                  <option value="Contacted">Contacted</option>
-                  <option value="Qualified">Qualified</option>
-                  <option value="Follow up">Follow up</option>
-                  <option value="Meeting">Meeting</option>
-                  <option value="Sale">Sale</option>
+                  <option value="New">New</option>
+                  <option value="Proposal">Proposal</option>
+                  <option value="Deposit">Deposit</option>
+                  <option value="Follow-Up Ongoing">Follow-Up Ongoing</option>
+                  <option value="Meeting Follow-Up">Meeting Follow-Up</option>
+                  <option value="Won">Won</option>
+                  <option value="Lost">Lost</option>
                 </select>
+              </div>
+              <div className="flex gap-4">
+                <div className="flex-1">
+                  <label className="text-xs text-zinc-500 uppercase font-mono tracking-widest">Setter Name</label>
+                  <input
+                    type="text"
+                    value={editForm.setter_name || ""}
+                    onChange={e => setEditForm({ ...editForm, setter_name: e.target.value })}
+                    className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-zinc-500 transition-all mt-1 text-white"
+                  />
+                </div>
+                <div className="flex-1">
+                  <label className="text-xs text-zinc-500 uppercase font-mono tracking-widest">Closer Name</label>
+                  <input
+                    type="text"
+                    value={editForm.closer_name || ""}
+                    onChange={e => setEditForm({ ...editForm, closer_name: e.target.value })}
+                    className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-zinc-500 transition-all mt-1 text-white"
+                  />
+                </div>
               </div>
             </>
           )}
@@ -689,31 +749,68 @@ export default function CRMLeadPipeline() {
                   className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-zinc-500 transition-all mt-1 text-white"
                 />
               </div>
+              <div className="flex gap-4">
+                <div className="flex-1">
+                  <label className="text-xs text-zinc-500 uppercase font-mono tracking-widest">First Contact</label>
+                  <input
+                    type="date"
+                    value={editForm.first_contact_date || ""}
+                    onChange={e => setEditForm({ ...editForm, first_contact_date: e.target.value })}
+                    className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-zinc-500 transition-all mt-1 text-white"
+                  />
+                </div>
+                <div className="flex-1">
+                  <label className="text-xs text-zinc-500 uppercase font-mono tracking-widest">Follow-up Date</label>
+                  <input
+                    type="date"
+                    value={editForm.followup_date || ""}
+                    onChange={e => setEditForm({ ...editForm, followup_date: e.target.value })}
+                    className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-zinc-500 transition-all mt-1 text-white"
+                  />
+                </div>
+              </div>
+              <div className="flex gap-4">
+                <div className="flex-1">
+                  <label className="text-xs text-zinc-500 uppercase font-mono tracking-widest">Date of Meeting</label>
+                  <input
+                    type="date"
+                    value={editForm.date_of_meeting || ""}
+                    onChange={e => setEditForm({ ...editForm, date_of_meeting: e.target.value })}
+                    className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-zinc-500 transition-all mt-1 text-white"
+                  />
+                </div>
+                <div className="flex-1">
+                  <label className="text-xs text-zinc-500 uppercase font-mono tracking-widest">Meeting Status</label>
+                  <select
+                    value={editForm.meeting_status || ""}
+                    onChange={e => setEditForm({ ...editForm, meeting_status: e.target.value })}
+                    className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-zinc-500 transition-all mt-1 text-white"
+                  >
+                    <option value="">None</option>
+                    <option value="Scheduled">Scheduled</option>
+                    <option value="Completed">Completed</option>
+                    <option value="No Show">No Show</option>
+                    <option value="Rescheduled">Rescheduled</option>
+                  </select>
+                </div>
+              </div>
               <div>
-                <label className="text-xs text-zinc-500 uppercase font-mono tracking-widest">Instagram Link</label>
+                <label className="text-xs text-zinc-500 uppercase font-mono tracking-widest">Call Outcome</label>
                 <input
                   type="text"
-                  value={editForm.instagram_link || ""}
-                  onChange={e => setEditForm({ ...editForm, instagram_link: e.target.value })}
+                  value={editForm.call_outcome || ""}
+                  onChange={e => setEditForm({ ...editForm, call_outcome: e.target.value })}
                   className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-zinc-500 transition-all mt-1 text-white"
                 />
               </div>
               <div>
-                <label className="text-xs text-zinc-500 uppercase font-mono tracking-widest">Contact Number</label>
+                <label className="text-xs text-zinc-500 uppercase font-mono tracking-widest">Loss Reason</label>
                 <input
                   type="text"
-                  value={editForm.contact_number || ""}
-                  onChange={e => setEditForm({ ...editForm, contact_number: e.target.value })}
+                  value={editForm.loss_reason || ""}
+                  onChange={e => setEditForm({ ...editForm, loss_reason: e.target.value })}
                   className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-zinc-500 transition-all mt-1 text-white"
-                />
-              </div>
-              <div>
-                <label className="text-xs text-zinc-500 uppercase font-mono tracking-widest">Follow-up Date</label>
-                <input
-                  type="date"
-                  value={editForm.followup_date || ""}
-                  onChange={e => setEditForm({ ...editForm, followup_date: e.target.value })}
-                  className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-zinc-500 transition-all mt-1 text-white"
+                  placeholder="If status is Lost, explain why"
                 />
               </div>
             </>
@@ -721,13 +818,63 @@ export default function CRMLeadPipeline() {
 
           {formPage === 2 && (
             <>
+              <div className="flex gap-4">
+                <div className="flex-1">
+                  <label className="text-xs text-zinc-500 uppercase font-mono tracking-widest">Total Deal Value</label>
+                  <input
+                    type="number"
+                    value={editForm.total_deal_value || ""}
+                    onChange={e => setEditForm({ ...editForm, total_deal_value: Number(e.target.value) })}
+                    className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-zinc-500 transition-all mt-1 text-white"
+                  />
+                </div>
+                <div className="flex-1">
+                  <label className="text-xs text-zinc-500 uppercase font-mono tracking-widest">Cash Collected</label>
+                  <input
+                    type="number"
+                    value={editForm.cash_collected || ""}
+                    onChange={e => setEditForm({ ...editForm, cash_collected: Number(e.target.value) })}
+                    className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-zinc-500 transition-all mt-1 text-white"
+                  />
+                </div>
+                <div className="flex-1">
+                  <label className="text-xs text-zinc-500 uppercase font-mono tracking-widest">Commission %</label>
+                  <input
+                    type="number"
+                    value={editForm.commission_percentage || ""}
+                    onChange={e => setEditForm({ ...editForm, commission_percentage: Number(e.target.value) })}
+                    className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-zinc-500 transition-all mt-1 text-white"
+                  />
+                </div>
+              </div>
+              <div className="flex gap-4">
+                <div className="flex-1">
+                <label className="text-xs text-zinc-500 uppercase font-mono tracking-widest">Instagram Link</label>
+                <input
+                  type="text"
+                  value={editForm.instagram_link || ""}
+                  onChange={e => setEditForm({ ...editForm, instagram_link: e.target.value })}
+                  className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-zinc-500 transition-all mt-1 text-white"
+                />
+                </div>
+                <div className="flex-1">
+                  <label className="text-xs text-zinc-500 uppercase font-mono tracking-widest">Contact Number</label>
+                  <input
+                    type="text"
+                    value={editForm.contact_number || ""}
+                    onChange={e => setEditForm({ ...editForm, contact_number: e.target.value })}
+                    className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-zinc-500 transition-all mt-1 text-white"
+                  />
+                </div>
+              </div>
               <div>
-                <label className="text-xs text-zinc-500 uppercase font-mono tracking-widest">Meeting Date & Time</label>
+                <label className="text-xs text-zinc-500 uppercase font-mono tracking-widest">Auto Calendar Date/Time</label>
                 <input
                   type="datetime-local"
                   value={editForm.meeting_date || ""}
                   onChange={e => setEditForm({ ...editForm, meeting_date: e.target.value })}
                   className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-zinc-500 transition-all mt-1 text-white"
+                  title="If set and status is Proposal, automatically schedule in Google Calendar"
                 />
               </div>
               <div>

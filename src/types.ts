@@ -98,3 +98,39 @@ export interface AIAction {
   type: AIActionType;
   payload: any;
 }
+
+export interface Lead {
+  id: string;
+  name: string;
+  email: string;
+  status: "New" | "Proposal" | "Deposit" | "Follow-Up Ongoing" | "Meeting Follow-Up" | "Won" | "Lost";
+  company: string;
+  lastContactDate?: string;
+  last_touch_date?: string;
+  nextStep?: string;
+  instagram_link?: string;
+  contact_number?: string;
+  conversations?: string;
+  followup_date?: string;
+  meeting_date?: string;
+  calendar_synced?: boolean;
+  setter_name?: string;
+  closer_name?: string;
+  first_contact_date?: string;
+  date_of_meeting?: string;
+  meeting_status?: string;
+  call_outcome?: string;
+  loss_reason?: string;
+  total_deal_value?: number;
+  cash_collected?: number;
+  commission_percentage?: number;
+}
+
+export interface DailyActivity {
+  id: string;
+  rep_name: string;
+  date: string;
+  dials: number;
+  dms: number;
+  createdAt?: string;
+}

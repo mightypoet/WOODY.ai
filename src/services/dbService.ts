@@ -279,7 +279,7 @@ export const dbService = {
       return result;
     } catch (error) {
       console.error(`Supabase list error in ${table}:`, error);
-      return [];
+      return mockStorage[table] ? [...mockStorage[table]] : [];
     }
   },
 
