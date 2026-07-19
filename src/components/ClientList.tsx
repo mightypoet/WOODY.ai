@@ -30,6 +30,10 @@ export default function ClientList({ user }: { user: User }) {
     brand: "",
     contact: "",
     contactNumber: "",
+    poc_name: "",
+    phone: "",
+    budget: 0,
+    amount_received: 0,
     services: "",
     paymentTerms: "",
     socialMediaSheetUrl: "",
@@ -59,10 +63,15 @@ export default function ClientList({ user }: { user: User }) {
       await dbService.create("clients", {
         ...newClient,
         social_media_calendar_link: newClient.socialMediaSheetUrl,
+        deliverables: newClient.services
+          .split(",")
+          .map((s) => s.trim())
+          .filter(Boolean),
         services: newClient.services
           .split(",")
           .map((s) => s.trim())
           .filter(Boolean),
+        amount_pending: Number(newClient.budget) - Number(newClient.amount_received),
         createdAt: new Date().toISOString(),
       });
 
@@ -71,6 +80,10 @@ export default function ClientList({ user }: { user: User }) {
         brand: "",
         contact: "",
         contactNumber: "",
+        poc_name: "",
+        phone: "",
+        budget: 0,
+        amount_received: 0,
         services: "",
         paymentTerms: "",
         socialMediaSheetUrl: "",
@@ -173,33 +186,61 @@ export default function ClientList({ user }: { user: User }) {
                   </div>
                 </div>
 
-                <div className="space-y-3">
-                  <div className="flex items-center gap-3 text-sm text-zinc-400">
-                    <Mail size={14} />
-                    <span className="truncate">
-                      {client.contact || "No email provided"}
-                    </span>
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2 text-sm text-zinc-400">
+                        <Mail size={14} className="shrink-0" />
+                        <span className="truncate">{client.contact || "No email"}</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-sm text-zinc-400">
+                        <Phone size={14} className="shrink-0" />
+                        <span className="truncate">{client.phone || client.contactNumber || "No phone"}</span>
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <div className="text-sm text-zinc-400 flex items-center">
+                        <span className="text-zinc-500 font-mono text-[10px] uppercase tracking-wider w-12 shrink-0">POC</span>
+                        <span className="truncate">{client.poc_name || "N/A"}</span>
+                      </div>
+                      <div className="text-sm text-zinc-400 flex items-center">
+                        <span className="text-zinc-500 font-mono text-[10px] uppercase tracking-wider w-12 shrink-0">BGT</span>
+                        <span>${client.budget?.toLocaleString() || 0}</span>
+                      </div>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-3 text-sm text-zinc-400">
-                    <Phone size={14} />
-                    <span>{client.contactNumber || "No phone provided"}</span>
+
+                  <div className="flex items-center justify-between pt-2 bg-zinc-800/30 p-3 rounded-lg border border-zinc-800/50">
+                    <div className="flex flex-col">
+                      <span className="text-[10px] text-zinc-500 uppercase tracking-widest font-mono mb-1">Received</span>
+                      <span className="text-sm text-emerald-400 font-medium">${client.amount_received?.toLocaleString() || 0}</span>
+                    </div>
+                    <div className="flex flex-col text-right">
+                      <span className="text-[10px] text-zinc-500 uppercase tracking-widest font-mono mb-1">Pending</span>
+                      <span className="text-sm text-amber-400 font-medium">${client.amount_pending?.toLocaleString() || 0}</span>
+                    </div>
                   </div>
                 </div>
 
                 <div className="pt-4 border-t border-zinc-800 flex items-center justify-between">
-                  <div className="flex -space-x-2">
-                    {(Array.isArray(client.services) ? client.services : typeof client.services === 'string' ? (client.services as string).split(',') : []).map((service, idx) => (
+                  <div className="flex flex-wrap gap-1">
+                    {(Array.isArray(client.deliverables) && client.deliverables.length > 0 ? client.deliverables : Array.isArray(client.services) ? client.services : typeof client.services === 'string' ? (client.services as string).split(',') : []).slice(0, 3).map((service, idx) => (
                       <div
                         key={idx}
-                        className="w-6 h-6 rounded-full bg-zinc-800 border border-zinc-900 flex items-center justify-center text-[8px] font-bold uppercase"
+                        className="px-2 py-1 rounded-md bg-zinc-800 border border-zinc-700/50 text-[10px] font-medium text-zinc-300 whitespace-nowrap"
                         title={service.trim()}
                       >
-                        {service.trim()[0] || ""}
+                        {service.trim()}
                       </div>
                     ))}
+                    {(client.deliverables?.length > 3 || client.services?.length > 3) && (
+                      <div className="px-2 py-1 rounded-md bg-zinc-800 border border-zinc-700/50 text-[10px] font-medium text-zinc-500">
+                        +{((client.deliverables?.length || client.services?.length) - 3)}
+                      </div>
+                    )}
                   </div>
-                  <button className="text-xs text-zinc-500 hover:text-white flex items-center gap-1 transition-colors">
-                    View Details <ExternalLink size={12} />
+                  <button className="text-xs text-zinc-500 hover:text-white flex items-center gap-1 transition-colors shrink-0 ml-2">
+                    View <ExternalLink size={12} />
                   </button>
                 </div>
               </motion.div>

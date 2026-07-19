@@ -18,6 +18,12 @@ export interface Client {
   createdAt: string;
   annotation?: string;
   socialMediaSheetUrl?: string;
+  poc_name?: string;
+  phone?: string;
+  deliverables?: string[];
+  budget?: number;
+  amount_received?: number;
+  amount_pending?: number;
 }
 
 export interface Project {
@@ -92,7 +98,9 @@ export type AIActionType =
   | "CREATE_GOOGLE_TASK"
   | "CREATE_GOOGLE_DOC"
   | "CREATE_GOOGLE_SHEET"
-  | "SYNC_SOCIAL_MEDIA_SHEET";
+  | "SYNC_SOCIAL_MEDIA_SHEET"
+  | "LIST_CLIENTS_AND_LEADS"
+  | "SEND_EMAIL";
 
 export interface AIAction {
   type: AIActionType;

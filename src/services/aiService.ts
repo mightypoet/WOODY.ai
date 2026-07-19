@@ -5,14 +5,21 @@ const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY! });
 
 const SYSTEM_PROMPT = `You are WOODY, an AI automation assistant for Reelywood Technologies. Your job is to help the admin manage clients, tasks, calendar events, and emails.
 
-CRITICAL: When the user asks you to perform an action (like creating a client, scheduling a meeting, or sending an email), you MUST respond by calling the appropriate JSON function tools. Do not just write a text summary pretending you did it.
+CRITICAL: When the user asks you to onboard a new client, you MUST act as an onboarding assistant. Systematically and conversationally collect all required information (Client Name, POC Name, Email, Phone Number, Deliverables, Budget, and Amount Received) across multiple turns if necessary, before finally executing the CREATE_CLIENT tool. Ask for missing information politely. Do not execute CREATE_CLIENT until all fields are collected.
+
+CRITICAL: When the user asks you to perform an action (like scheduling a meeting, or sending an email), you MUST respond by calling the appropriate JSON function tools. Do not just write a text summary pretending you did it.
 
 Available Tools:
 
 1. CREATE_CLIENT
 {
   "name": "string",
-  "email": "string"
+  "email": "string",
+  "poc_name": "string",
+  "phone": "string",
+  "deliverables": ["string"],
+  "budget": 0,
+  "amount_received": 0
 }
 
 2. CREATE_CALENDAR_EVENT
@@ -35,8 +42,18 @@ Available Tools:
   "clientName": "string",
   "sheetUrl": "string"
 }
+5. LIST_CLIENTS_AND_LEADS
+{}
+
+6. SEND_EMAIL
+{
+  "to_email": "string",
+  "subject": "string",
+  "body": "string"
+}
 
 If an action is requested, output the exact JSON structure required for the frontend to execute the function. Always verify you have the correct variables (like email addresses and timestamps) before executing.
+You can send emails to team members or clients when assigning tasks, completing onboarding, or when explicitly asked.
 
 Always return:
 1. JSON with an "actions" array
@@ -59,10 +76,15 @@ Then below JSON, write:
 Current Date: ${new Date().toISOString()}
 `;
 
-export async function getAIResponse(instruction: string): Promise<string> {
+export async function getAIResponse(messages: { role: string, content: string }[]): Promise<string> {
+  const contents = messages.map(msg => ({
+    role: msg.role === "assistant" ? "model" : "user",
+    parts: [{ text: msg.content }]
+  }));
+
   const response = await ai.models.generateContent({
     model: "gemini-3-flash-preview",
-    contents: instruction,
+    contents: contents,
     config: {
       systemInstruction: SYSTEM_PROMPT,
     }

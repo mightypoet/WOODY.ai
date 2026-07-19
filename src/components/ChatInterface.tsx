@@ -152,10 +152,16 @@ export default function ChatInterface({ user }: { user: User }) {
                 action.payload.client_name ||
                 "",
               contact: action.payload.contact || action.payload.email || "",
-              services: action.payload.services || [],
+              poc_name: action.payload.poc_name || "",
+              phone: action.payload.phone || "",
+              deliverables: action.payload.deliverables || [],
+              budget: action.payload.budget || 0,
+              amount_received: action.payload.amount_received || 0,
+              amount_pending: (action.payload.budget || 0) - (action.payload.amount_received || 0),
+              services: action.payload.deliverables || action.payload.services || [],
               paymentTerms: action.payload.payment_terms || "",
               totalBudget:
-                action.payload.deal_value || action.payload.totalBudget || 0,
+                action.payload.budget || action.payload.deal_value || action.payload.totalBudget || 0,
               createdAt: now,
             });
             results.push(
@@ -558,6 +564,16 @@ export default function ChatInterface({ user }: { user: User }) {
             break;
           }
 
+          case "SEND_EMAIL": {
+            console.log("Mock Email Sent:", {
+              to: action.payload.to_email,
+              subject: action.payload.subject,
+              body: action.payload.body,
+            });
+            results.push(`Successfully sent email to ${action.payload.to_email} with subject "${action.payload.subject}"`);
+            break;
+          }
+
           case "CREATE_GOOGLE_MEET_SPACE": {
             const res = await meetService.createMeetingSpace();
             results.push(`Created Google Meet space: ${res.meetingUri}`);
@@ -676,6 +692,28 @@ export default function ChatInterface({ user }: { user: User }) {
             results.push(`Synced ${syncCount} events from Social Media Sheet to ${client.name}'s calendar and tasks.`);
             break;
           }
+
+          case "LIST_CLIENTS_AND_LEADS": {
+            const clients = (await dbService.list("clients")) as any[];
+            const leads = (await dbService.list("leads")) as any[];
+            
+            let resultStr = "**Current Clients:**\n";
+            if (clients && clients.length > 0) {
+              resultStr += clients.map(c => `- ${c.name} (${c.brand || 'No brand'})`).join("\n");
+            } else {
+              resultStr += "No clients found.\n";
+            }
+            
+            resultStr += "\n\n**Current Leads:**\n";
+            if (leads && leads.length > 0) {
+              resultStr += leads.map(l => `- ${l.name} (${l.company || 'No company'}) - Status: ${l.status}`).join("\n");
+            } else {
+              resultStr += "No leads found.\n";
+            }
+            
+            results.push(resultStr);
+            break;
+          }
         }
       } catch (e) {
         console.error("Action execution failed:", e);
@@ -705,12 +743,13 @@ export default function ChatInterface({ user }: { user: User }) {
     setIsTyping(true);
 
     try {
-      const aiText = await getAIResponse(input);
+      const aiText = await getAIResponse([...messages, userMessage]);
       const actions = extractActions(aiText);
 
       // Strip JSON from the display text if it exists
       const displayText = aiText
-        .replace(/\{[\s\S]*"actions"[\s\S]*\}/, "")
+        .replace(/```(?:json)?\s*\{[\s\S]*"actions"[\s\S]*\}\s*```/g, "")
+        .replace(/\{[\s\S]*"actions"[\s\S]*\}/g, "")
         .trim();
 
       const assistantMessage: Message = {

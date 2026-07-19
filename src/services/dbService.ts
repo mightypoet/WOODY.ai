@@ -73,6 +73,13 @@ export const dbService = {
         notifySubscribers(table);
         return mockId;
       }
+
+      if (insertedData) {
+        if (!mockStorage[table]) mockStorage[table] = [];
+        mockStorage[table] = [...mockStorage[table], insertedData];
+        notifySubscribers(table);
+      }
+
       return insertedData?.id;
     } catch (error) {
       console.error(`Supabase create error in ${table}:`, error);
