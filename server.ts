@@ -60,9 +60,9 @@ app.post("/api/send-email", async (req, res) => {
 
 app.post("/api/telegram-webhook", async (req, res) => {
   console.log('Incoming Telegram message:', req.body);
-  const token = process.env.TELEGRAM_BOT_TOKEN || process.env.VITE_TELEGRAM_BOT_TOKEN;
+  const token = process.env.TELEGRAM_BOT_TOKEN;
   if (!token) {
-    console.error("Telegram bot token not found in environment variables.");
+    console.error("Telegram bot token not found in environment variables (TELEGRAM_BOT_TOKEN).");
     return res.status(500).json({ error: "Telegram bot token not configured" });
   }
 
