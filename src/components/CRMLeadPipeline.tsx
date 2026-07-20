@@ -114,18 +114,26 @@ export default function CRMLeadPipeline() {
         for (const row of dataRows) {
           if (row.length < 2) continue;
           
-          const name = row[0] || "";
+          let name = row[0] || "";
           const email = row[1] || "";
           const company = row[2] || "";
-          const statusRaw = row[3] || "New";
+          const statusRaw = (row[3] || "New").toUpperCase().trim();
           const contact_number = row[4] || "";
           const conversations = row[5] || ""; // Meeting Notes
-          const meeting_date = row[6] || "";
+          const meeting_date = row[8] || row[7] || row[6] || "";
 
-          const validStatuses = ["New", "Proposal", "Deposit", "Follow-Up Ongoing", "Meeting Follow-Up", "Won", "Lost"];
-          const status = validStatuses.includes(statusRaw) ? statusRaw as Lead["status"] : "New";
+          let status = "New";
+          if (["DEAD", "NOT INTERESTED", "DNP"].includes(statusRaw)) status = "Lost";
+          else if (statusRaw === "SALE") status = "Won";
+          else if (["FOLLOW UP", "INTERESTED"].includes(statusRaw)) status = "Follow-Up Ongoing";
+          else if (statusRaw === "MEETING") status = "Meeting Follow-Up";
+          else if (statusRaw === "SEND MATERIALS") status = "Proposal";
 
-          if (name && email) {
+          if (!name && (company || contact_number)) {
+             name = company || "Unknown Contact";
+          }
+
+          if (name || email || contact_number) {
             console.log(`Inserting row ${imported + 1}: ${name} (${email})`);
             await dbService.create("leads", {
               name, email, company, status, contact_number, conversations, meeting_date, 
@@ -134,7 +142,7 @@ export default function CRMLeadPipeline() {
             });
             imported++;
           } else {
-            console.log("Skipping row due to missing name or email:", row);
+            console.log("Skipping row due to no identifiable info:", row);
           }
         }
         
