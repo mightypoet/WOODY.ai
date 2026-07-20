@@ -566,23 +566,26 @@ export default function ChatInterface({ user }: { user: User }) {
 
           case "SEND_EMAIL": {
             try {
-              const res = await fetch("https://api.resend.com/emails", {
+              const res = await fetch("https://api.emailjs.com/api/v1.0/email/send", {
                 method: "POST",
                 headers: {
                   "Content-Type": "application/json",
-                  Authorization: `Bearer ${import.meta.env.VITE_RESEND_API_KEY}`,
                 },
                 body: JSON.stringify({
-                  from: "onboarding@resend.dev",
-                  to: action.payload.to_email,
-                  subject: action.payload.subject,
-                  html: action.payload.body,
+                  service_id: import.meta.env.VITE_EMAILJS_SERVICE_ID,
+                  template_id: import.meta.env.VITE_EMAILJS_TEMPLATE_ID,
+                  user_id: import.meta.env.VITE_EMAILJS_PUBLIC_KEY,
+                  template_params: {
+                    to_email: action.payload.to_email,
+                    subject: action.payload.subject,
+                    message: action.payload.body,
+                  },
                 }),
               });
 
               if (!res.ok) {
-                const errData = await res.json().catch(() => ({}));
-                throw new Error(errData.message || `Failed with status ${res.status}`);
+                const errText = await res.text().catch(() => "");
+                throw new Error(errText || `Failed with status ${res.status}`);
               }
               
               results.push(`Successfully sent email to ${action.payload.to_email} with subject "${action.payload.subject}"`);

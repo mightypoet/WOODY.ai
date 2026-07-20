@@ -5,7 +5,11 @@ const activeSubscriptions: Record<string, ((data: any[]) => void)[]> = {};
 
 function notifySubscribers(table: string) {
   if (activeSubscriptions[table]) {
-    activeSubscriptions[table].forEach(cb => cb([...(mockStorage[table] || [])]));
+    dbService.list(table).then(data => {
+      activeSubscriptions[table].forEach(cb => cb(data));
+    }).catch(() => {
+      activeSubscriptions[table].forEach(cb => cb([...(mockStorage[table] || [])]));
+    });
   }
 }
 
@@ -43,9 +47,7 @@ export const dbService = {
 
       let finalPayload = { ...payload };
       if (table === 'users') {
-        finalPayload = {};
-        if (payload.id !== undefined) finalPayload.id = payload.id;
-        if (payload.createdAt !== undefined) finalPayload.createdAt = payload.createdAt;
+        // we map other fields correctly
       }
       if (table === 'tasks') {
         if (finalPayload.projectId) finalPayload.projectId = toUUID(finalPayload.projectId);
@@ -102,9 +104,7 @@ export const dbService = {
 
       let finalPayload = { ...payload };
       if (table === 'users') {
-        finalPayload = {};
-        if (payload.id !== undefined) finalPayload.id = payload.id;
-        if (payload.createdAt !== undefined) finalPayload.createdAt = payload.createdAt;
+        // we map other fields correctly
       }
       if (table === 'tasks') {
         if (finalPayload.projectId) finalPayload.projectId = toUUID(finalPayload.projectId);
@@ -133,6 +133,9 @@ export const dbService = {
         notifySubscribers(table);
         return;
       }
+      
+      // On success, notify subscribers
+      notifySubscribers(table);
     } catch (error) {
       console.error(`Supabase set error in ${table}/${id}:`, error);
       
@@ -154,9 +157,7 @@ export const dbService = {
       const payload = { ...data };
       let finalPayload = { ...payload };
       if (table === 'users') {
-        finalPayload = {};
-        if (payload.id !== undefined) finalPayload.id = payload.id;
-        if (payload.createdAt !== undefined) finalPayload.createdAt = payload.createdAt;
+        // we map other fields correctly
       }
       if (table === 'tasks') {
         if (finalPayload.projectId) finalPayload.projectId = toUUID(finalPayload.projectId);
@@ -184,6 +185,9 @@ export const dbService = {
         }
         return;
       }
+
+      // On success, notify subscribers
+      notifySubscribers(table);
     } catch (error) {
       console.error(`Supabase update error in ${table}/${id}:`, error);
       
@@ -307,6 +311,9 @@ export const dbService = {
         }
         return;
       }
+
+      // On success, notify subscribers
+      notifySubscribers(table);
     } catch (error) {
       console.error(`Supabase delete error in ${table}/${id}:`, error);
       // Fallback local delete
