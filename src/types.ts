@@ -113,6 +113,7 @@ export interface Lead {
   email: string;
   status: "New" | "Proposal" | "Deposit" | "Follow-Up Ongoing" | "Meeting Follow-Up" | "Won" | "Lost";
   company: string;
+  createdAt?: string;
   lastContactDate?: string;
   last_touch_date?: string;
   nextStep?: string;

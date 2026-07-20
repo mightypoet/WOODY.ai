@@ -1,7 +1,18 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { AIAction } from "../types";
 
-const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY! });
+let apiKey = "";
+try {
+  // @ts-ignore
+  apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+} catch (e) {
+  // Ignore
+}
+if (!apiKey && typeof process !== 'undefined' && process.env.VITE_GEMINI_API_KEY) {
+  apiKey = process.env.VITE_GEMINI_API_KEY;
+}
+
+const ai = new GoogleGenAI({ apiKey });
 
 const SYSTEM_PROMPT = `You are WOODY, an AI automation assistant for Reelywood Technologies. Your job is to help the admin manage clients, tasks, calendar events, and emails.
 

@@ -25,38 +25,29 @@ export const notificationService = {
 
   async sendEmail(to: string, subject: string, message: string) {
     try {
-      const response = await fetch('/api/send-email', {
-        method: 'POST',
+      const response = await fetch("https://api.emailjs.com/api/v1.0/email/send", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          to,
-          subject,
-          html: `
-            <div style="font-family: sans-serif; padding: 20px; color: #333;">
-              <h2 style="color: #4F46E5;">Woody AI Notification</h2>
-              <p>${message}</p>
-              <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;" />
-              <p style="font-size: 12px; color: #666;">This is an automated message from Woody AI.</p>
-            </div>
-          `,
+          service_id: import.meta.env.VITE_EMAILJS_SERVICE_ID,
+          template_id: import.meta.env.VITE_EMAILJS_TEMPLATE_ID,
+          user_id: import.meta.env.VITE_EMAILJS_PUBLIC_KEY,
+          template_params: {
+            to_email: to,
+            subject: subject,
+            message: message,
+          },
         }),
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        console.error('Failed to send email:', errorData.error);
-        
-        // Provide more context to the user via console
-        if (errorData.error.includes('RESEND_API_KEY missing')) {
-          console.warn('ACTION REQUIRED: Please add your RESEND_API_KEY in the Settings menu.');
-        } else if (errorData.error.includes('onboarding@resend.dev')) {
-          console.warn('NOTE: Using Resend onboarding domain. You can only send emails to the address you signed up with.');
-        }
+        const errorText = await response.text();
+        console.error("Failed to send email:", errorText);
       }
     } catch (error) {
-      console.error('Error calling send-email API:', error);
+      console.error("Error sending email via EmailJS:", error);
     }
   }
 };

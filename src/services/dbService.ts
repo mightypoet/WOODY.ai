@@ -49,6 +49,7 @@ export const dbService = {
       if (table === 'users') {
         // we map other fields correctly
       }
+      if (table === 'leads') { delete finalPayload.calendar_synced; delete finalPayload.lastContactDate; delete finalPayload.nextStep; }
       if (table === 'tasks') {
         if (finalPayload.projectId) finalPayload.projectId = toUUID(finalPayload.projectId);
         if (finalPayload.project_id) finalPayload.project_id = toUUID(finalPayload.project_id);
@@ -106,6 +107,7 @@ export const dbService = {
       if (table === 'users') {
         // we map other fields correctly
       }
+      if (table === 'leads') { delete finalPayload.calendar_synced; delete finalPayload.lastContactDate; delete finalPayload.nextStep; }
       if (table === 'tasks') {
         if (finalPayload.projectId) finalPayload.projectId = toUUID(finalPayload.projectId);
         if (finalPayload.project_id) finalPayload.project_id = toUUID(finalPayload.project_id);
@@ -159,6 +161,7 @@ export const dbService = {
       if (table === 'users') {
         // we map other fields correctly
       }
+      if (table === 'leads') { delete finalPayload.calendar_synced; delete finalPayload.lastContactDate; delete finalPayload.nextStep; }
       if (table === 'tasks') {
         if (finalPayload.projectId) finalPayload.projectId = toUUID(finalPayload.projectId);
         if (finalPayload.project_id) finalPayload.project_id = toUUID(finalPayload.project_id);
@@ -233,7 +236,7 @@ export const dbService = {
          const mockItem = mockStorage[table].find(item => item.id === id);
          if (mockItem) {
            let returnData = { ...mockItem };
-           if (table === 'tasks') {
+      if (table === 'tasks') {
              if (returnData.projectId) returnData.projectId = fromUUID(returnData.projectId);
              if (returnData.project_id) returnData.project_id = fromUUID(returnData.project_id);
              if (returnData.clientId) returnData.clientId = fromUUID(returnData.clientId);
@@ -278,6 +281,13 @@ export const dbService = {
          return [];
       }
       let result = data || [];
+      if (mockStorage[table] && mockStorage[table].length > 0) {
+        const mockMap = new Map(mockStorage[table].map(item => [item.id, item]));
+        result = result.map(item => mockMap.has(item.id) ? mockMap.get(item.id) : item);
+        const existingIds = new Set(result.map(item => item.id));
+        const newItems = mockStorage[table].filter(item => !existingIds.has(item.id));
+        result = [...result, ...newItems];
+      }
       if (table === 'tasks') {
         result = result.map(t => ({
           ...t,

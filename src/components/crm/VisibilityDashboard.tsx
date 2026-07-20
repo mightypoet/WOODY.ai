@@ -49,6 +49,20 @@ export default function VisibilityDashboard({ leads }: { leads: Lead[] }) {
       }
     }
   });
+    let totalSpeedHours = 0;
+  let speedCount = 0;
+  filteredLeads.forEach(l => {
+    if (l.createdAt && l.first_contact_date) {
+      const ms = new Date(l.first_contact_date).getTime() - new Date(l.createdAt).getTime();
+      const hrs = ms / (1000 * 3600);
+      if (hrs >= 0) {
+        totalSpeedHours += hrs;
+        speedCount++;
+      }
+    }
+  });
+  const avgSpeedToLead = speedCount > 0 ? totalSpeedHours / speedCount : 0;
+
   const avgBookingLag = lagCount > 0 ? totalLagDays / lagCount : 0;
 
   const wonLeads = filteredLeads.filter(l => l.status === "Won");
@@ -102,6 +116,10 @@ export default function VisibilityDashboard({ leads }: { leads: Lead[] }) {
         <div className="bg-zinc-900/50 border border-white/5 rounded-xl p-5 space-y-4">
           <h4 className="text-sm font-semibold text-zinc-400 uppercase tracking-wider">Setter Metrics</h4>
           <div className="grid grid-cols-2 gap-4">
+            <div>
+              <p className="text-2xl font-bold text-white">{avgSpeedToLead.toFixed(1)}h</p>
+              <p className="text-xs text-zinc-500">Speed to Lead</p>
+            </div>
             <div>
               <p className="text-2xl font-bold text-white">{totalDials}</p>
               <p className="text-xs text-zinc-500">Dials</p>

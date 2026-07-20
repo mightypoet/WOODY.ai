@@ -11,7 +11,7 @@ import VisibilityDashboard from "./crm/VisibilityDashboard";
 export default function CRMLeadPipeline() {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [loading, setLoading] = useState(false);
-  const [spreadsheetId, setSpreadsheetId] = useState("");
+  
   const [importing, setImporting] = useState(false);
   
   // Edit Lead state
@@ -65,71 +65,104 @@ export default function CRMLeadPipeline() {
     }
   };
 
-  const importFromSheets = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!spreadsheetId) return;
+  const handleCSVUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    console.log("handleCSVUpload triggered");
+    const inputElement = e.target;
+    const file = inputElement.files?.[0];
+    console.log("Selected file:", file);
+    if (!file) {
+      console.log("No file selected, returning.");
+      return;
+    }
+
     setImporting(true);
 
-    try {
-      const token = await getAccessToken();
-      if (!token) throw new Error("Not authenticated with Google");
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      console.log("FileReader onload triggered");
+      try {
+        const text = event.target?.result as string;
+        console.log("File read successfully, length:", text?.length);
+        if (!text) throw new Error("File could not be read (empty text)");
 
-      let actualId = spreadsheetId;
-      if (spreadsheetId.includes('/d/')) {
-        const match = spreadsheetId.match(/\/d\/([a-zA-Z0-9-_]+)/);
-        if (match) {
-          actualId = match[1];
-        }
-      }
-
-      const res = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${actualId}/values/A2:I`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      
-      if (!res.ok) {
-        if (res.status === 401) {
-          throw new Error("Google session expired or invalid. Please log out, and log back in to refresh your Google authentication token.");
-        }
-        throw new Error(`Google Sheets API error: ${res.status} ${res.statusText}`);
-      }
-      
-      const data = await res.json();
-      
-      if (data.values && data.values.length > 0) {
+        // Simple CSV parser
+        const rows = text.split('\n').map(row => {
+          const rowArray = [];
+          let currentString = '';
+          let insideQuotes = false;
+          
+          for (let i = 0; i < row.length; i++) {
+            const char = row[i];
+            if (char === '"') {
+              insideQuotes = !insideQuotes;
+            } else if (char === ',' && !insideQuotes) {
+              rowArray.push(currentString.trim());
+              currentString = '';
+            } else {
+              currentString += char;
+            }
+          }
+          rowArray.push(currentString.trim());
+          return rowArray;
+        });
+        
+        console.log(`Parsed ${rows.length} rows`);
+        const dataRows = rows.slice(1);
+        console.log(`Data rows length: ${dataRows.length}`, dataRows);
+        
         let imported = 0;
-        for (const row of data.values) {
+        for (const row of dataRows) {
+          if (row.length < 2) continue;
+          
           const name = row[0] || "";
           const email = row[1] || "";
           const company = row[2] || "";
-          const status = (row[3] as any) || "New";
-          const instagram_link = row[4] || "";
-          const contact_number = row[5] || "";
-          const conversations = row[6] || "";
-          const followup_date = row[7] || "";
-          const meeting_date = row[8] || "";
-          
+          const statusRaw = row[3] || "New";
+          const contact_number = row[4] || "";
+          const conversations = row[5] || ""; // Meeting Notes
+          const meeting_date = row[6] || "";
+
+          const validStatuses = ["New", "Proposal", "Deposit", "Follow-Up Ongoing", "Meeting Follow-Up", "Won", "Lost"];
+          const status = validStatuses.includes(statusRaw) ? statusRaw as Lead["status"] : "New";
+
           if (name && email) {
+            console.log(`Inserting row ${imported + 1}: ${name} (${email})`);
             await dbService.create("leads", {
-              name, email, company, status, instagram_link, contact_number, conversations, followup_date, meeting_date, createdAt: new Date().toISOString(), last_touch_date: new Date().toISOString()
+              name, email, company, status, contact_number, conversations, meeting_date, 
+              createdAt: new Date().toISOString(), 
+              last_touch_date: new Date().toISOString()
             });
-            if (followup_date) {
-              await createTaskForFollowup(name, company, followup_date);
-            }
             imported++;
+          } else {
+            console.log("Skipping row due to missing name or email:", row);
           }
         }
+        
+        console.log(`Finished import loop, imported count: ${imported}`);
         alert(`Successfully imported ${imported} leads!`);
-        fetchLeads();
-      } else {
-        alert("No valid data found in sheet. Make sure it has A: Name, B: Email, C: Company, D: Status through I: Meeting Date.");
+        await fetchLeads();
+      } catch (error: any) {
+        console.error("Error parsing CSV:", error);
+        alert(`Failed to parse CSV: ${error.message || JSON.stringify(error)}`);
+      } finally {
+        setImporting(false);
+        if (inputElement) {
+          inputElement.value = '';
+        }
       }
-    } catch (error: any) {
-      console.error("Error importing from Sheets:", error);
-      alert(error.message || "Error reading Google Sheet. Ensure the ID is correct and you have permission.");
-    } finally {
+    };
+
+    reader.onerror = () => {
+      console.error("Error reading file");
+      alert("Failed to read the file.");
       setImporting(false);
-      setSpreadsheetId("");
-    }
+      if (inputElement) {
+        inputElement.value = '';
+      }
+    };
+
+    console.log("Calling readAsText");
+    reader.readAsText(file);
   };
 
   const handleSendIntroEmail = async (lead: Lead) => {
@@ -291,7 +324,7 @@ export default function CRMLeadPipeline() {
     if (
       newStatus === "Proposal" && 
       lead.meeting_date && 
-      !lead.calendar_synced
+      lead.meeting_status !== "Scheduled"
     ) {
       try {
         const token = await getAccessToken();
@@ -319,7 +352,7 @@ export default function CRMLeadPipeline() {
           
           if (res.ok) {
             calendarDidSync = true;
-            updatedLead.calendar_synced = true;
+            updatedLead.meeting_status = "Scheduled";
             updatedLead.nextStep = "Meeting Scheduled";
           } else {
             const errText = await res.text();
@@ -387,7 +420,7 @@ export default function CRMLeadPipeline() {
         if (
           finalForm.status === "Proposal" && 
           finalForm.meeting_date && 
-          !editingLead.calendar_synced
+          editingLead.meeting_status !== "Scheduled"
         ) {
           try {
             const token = await getAccessToken();
@@ -416,7 +449,7 @@ export default function CRMLeadPipeline() {
             
             if (res.ok) {
               calendarDidSync = true;
-              finalForm.calendar_synced = true;
+              finalForm.meeting_status = "Scheduled";
               finalForm.nextStep = "Meeting Scheduled";
             } else {
               const errText = await res.text();
@@ -501,7 +534,7 @@ export default function CRMLeadPipeline() {
               className={`bg-zinc-950 border ${isStale ? 'border-red-500 bg-red-950/20' : 'border-white/10'} rounded-xl p-4 shadow-sm group hover:${isStale ? 'border-red-400' : 'border-zinc-700'} transition-colors relative cursor-grab active:cursor-grabbing`}
             >
               <div className="absolute top-3 right-3 flex flex-row items-center gap-1">
-                {lead.calendar_synced && (
+                {lead.meeting_status === "Scheduled" && (
                   <div title="Calendar Synced" className="p-1.5 flex items-center justify-center">
                     <CalendarCheck size={14} className="text-emerald-400" />
                   </div>
@@ -618,27 +651,22 @@ export default function CRMLeadPipeline() {
         <div className="bg-zinc-900/40 border border-white/5 rounded-2xl p-4 mb-6 shrink-0 flex items-center gap-4">
           <FileSpreadsheet className="text-emerald-500 opacity-80" />
           <div className="flex-1">
-            <h3 className="text-sm font-semibold text-white">Import from Google Sheets</h3>
-            <p className="text-xs text-zinc-400">Import a list of prospects to start your pipeline. Sheet must have columns A: Name, B: Email, C: Company, D: Status (Up to I: Meeting Date).</p>
+            <h3 className="text-sm font-semibold text-white">Import Leads from CSV</h3>
+            <p className="text-xs text-zinc-400">Upload a CSV file to bulk import leads. Headers must include Name, Email, Company, Status, Phone, Meeting Notes, Meeting Date.</p>
           </div>
-          <form onSubmit={importFromSheets} className="flex gap-2 max-w-sm w-full">
+          <div className="flex gap-2 max-w-sm w-full">
             <input
-              type="text"
-              required
-              value={spreadsheetId}
-              onChange={(e) => setSpreadsheetId(e.target.value)}
-              placeholder="Spreadsheet ID"
-              className="flex-1 bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-emerald-500 transition-colors text-white"
+              type="file"
+              accept=".csv"
+              onChange={handleCSVUpload}
+              className="flex-1 bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-emerald-500 transition-colors text-white file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-emerald-500/10 file:text-emerald-400 hover:file:bg-emerald-500/20"
             />
-            <button
-              type="submit"
-              disabled={importing}
-              className="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-xl text-sm font-medium flex items-center gap-2 transition-colors disabled:opacity-50"
-            >
-              {importing ? <Loader2 size={16} className="animate-spin" /> : <Upload size={16} />}
-              Import
-            </button>
-          </form>
+            {importing && (
+              <div className="flex items-center text-emerald-400 px-4">
+                <Loader2 size={20} className="animate-spin" />
+              </div>
+            )}
+          </div>
         </div>
       )}
 
@@ -741,13 +769,6 @@ export default function CRMLeadPipeline() {
           {formPage === 1 && (
             <>
               <div>
-                <label className="text-xs text-zinc-500 uppercase font-mono tracking-widest">Next Step</label>
-                <input
-                  type="text"
-                  value={editForm.nextStep || ""}
-                  onChange={e => setEditForm({ ...editForm, nextStep: e.target.value })}
-                  className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-zinc-500 transition-all mt-1 text-white"
-                />
               </div>
               <div className="flex gap-4">
                 <div className="flex-1">
