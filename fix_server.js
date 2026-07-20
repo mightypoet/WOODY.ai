@@ -1,4 +1,11 @@
+import fs from 'fs';
 
+let content = fs.readFileSync('server.ts', 'utf8');
+
+// The corrupted part starts from line 62 in the file we saw
+// Wait, it's easier to just rebuild server.ts to be clean
+
+content = `
 import express from "express";
 import path from "path";
 import dotenv from "dotenv";
@@ -73,7 +80,7 @@ async function startTelegramPolling() {
   // Delete webhook first to ensure getUpdates works
   console.log("Deleting Telegram webhook to enable long polling...");
   try {
-    const deleteWebhookUrl = `https://api.telegram.org/bot${token}/deleteWebhook`;
+    const deleteWebhookUrl = \`https://api.telegram.org/bot\${token}/deleteWebhook\`;
     const deleteRes = await fetch(deleteWebhookUrl);
     const deleteJson = await deleteRes.json();
     console.log("Delete webhook response:", deleteJson);
@@ -86,7 +93,7 @@ async function startTelegramPolling() {
   // Continuous polling loop
   const poll = async () => {
     try {
-      const getUpdatesUrl = `https://api.telegram.org/bot${token}/getUpdates?offset=${lastUpdateId + 1}&timeout=30`;
+      const getUpdatesUrl = \`https://api.telegram.org/bot\${token}/getUpdates?offset=\${lastUpdateId + 1}&timeout=30\`;
       const response = await fetch(getUpdatesUrl);
       
       if (!response.ok) {
@@ -105,7 +112,7 @@ async function startTelegramPolling() {
             const chatId = update.message.chat.id;
             const text = update.message.text;
             
-            console.log(`Received text message from chat ${chatId}: ${text}`);
+            console.log(\`Received text message from chat \${chatId}: \${text}\`);
             
             try {
               const { getAIResponse } = await import("./src/services/aiService.js");
@@ -113,14 +120,14 @@ async function startTelegramPolling() {
               const aiReply = await getAIResponse([{ role: "user", content: text }]);
               console.log("AI reply received:", aiReply);
               
-              let textToSend = aiReply.replace(/\{[\s\S]*"actions"[\s\S]*?\}/g, '').trim();
+              let textToSend = aiReply.replace(/\\{[\\s\\S]*"actions"[\\s\\S]*?\\}/g, '').trim();
               if (!textToSend) {
                 textToSend = "Action executed.";
               }
               
-              console.log(`Sending message to Telegram chat ${chatId}: ${textToSend}`);
+              console.log(\`Sending message to Telegram chat \${chatId}: \${textToSend}\`);
               
-              const telegramApiUrl = `https://api.telegram.org/bot${token}/sendMessage`;
+              const telegramApiUrl = \`https://api.telegram.org/bot\${token}/sendMessage\`;
               const sendResponse = await fetch(telegramApiUrl, {
                 method: 'POST',
                 headers: {
@@ -179,7 +186,7 @@ async function startServer() {
   // Only listen if NOT on Vercel (Vercel handles listening)
   if (!process.env.VERCEL) {
     app.listen(PORT, "0.0.0.0", () => {
-      console.log(`Server running on http://localhost:${PORT}`);
+      console.log(\`Server running on http://localhost:\${PORT}\`);
     });
   }
 }
@@ -187,3 +194,6 @@ async function startServer() {
 startServer();
 
 export default app;
+`
+
+fs.writeFileSync('server.ts', content);
