@@ -1,0 +1,11 @@
+{
+  "users": [
+    {
+      "id": "9a3a484e-7416-4bd7-9bc9-5810bf159623",
+      "email": "rohan00as@gmail.com",
+      "name": "test",
+      "role": "admin",
+      "createdAt": "2026-07-27T20:06:01.970Z"
+    }
+  ]
+}

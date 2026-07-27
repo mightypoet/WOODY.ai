@@ -60,6 +60,95 @@ app.post("/api/send-email", async (req, res) => {
   }
 });
 
+
+// Basic JSON Database for persistence
+import os from 'os';
+const tmpDir = os.tmpdir();
+const DB_FILE = (process.env.NODE_ENV === 'production' || process.env.VERCEL) ? path.join(tmpDir, 'data.json') : path.join(process.cwd(), 'data.json');
+
+function readDB() {
+  if (!fs.existsSync(DB_FILE)) {
+    return {};
+  }
+  try {
+    return JSON.parse(fs.readFileSync(DB_FILE, 'utf8'));
+  } catch (e) {
+    console.error("Failed to read DB:", e);
+    return {};
+  }
+}
+
+function writeDB(data) {
+  fs.writeFileSync(DB_FILE, JSON.stringify(data, null, 2));
+}
+
+app.get("/api/store/:table", (req, res) => {
+  const db = readDB();
+  const table = req.params.table;
+  res.json(db[table] || []);
+});
+
+app.get("/api/store/:table/:id", (req, res) => {
+  const db = readDB();
+  const table = req.params.table;
+  const items = db[table] || [];
+  const item = items.find(i => i.id === req.params.id);
+  if (item) {
+    res.json(item);
+  } else {
+    res.status(404).json({ error: "Not found" });
+  }
+});
+
+app.post("/api/store/:table", (req, res) => {
+  const db = readDB();
+  const table = req.params.table;
+  if (!db[table]) db[table] = [];
+  
+  const newItem = { ...req.body };
+  if (!newItem.id) {
+    newItem.id = require('crypto').randomUUID();
+  }
+  
+  db[table].push(newItem);
+  writeDB(db);
+  res.json(newItem);
+});
+
+app.put("/api/store/:table/:id", (req, res) => {
+  const db = readDB();
+  const table = req.params.table;
+  if (!db[table]) db[table] = [];
+  
+  const index = db[table].findIndex(i => i.id === req.params.id);
+  if (index >= 0) {
+    db[table][index] = { ...db[table][index], ...req.body };
+    writeDB(db);
+    res.json(db[table][index]);
+  } else {
+    const newItem = { ...req.body, id: req.params.id };
+    db[table].push(newItem);
+    writeDB(db);
+    res.json(newItem);
+  }
+});
+
+app.delete("/api/store/:table/:id", (req, res) => {
+  const db = readDB();
+  const table = req.params.table;
+  if (!db[table]) db[table] = [];
+  
+  const initialLength = db[table].length;
+  db[table] = db[table].filter(i => i.id !== req.params.id);
+  
+  if (db[table].length < initialLength) {
+    writeDB(db);
+    res.json({ success: true });
+  } else {
+    res.status(404).json({ error: "Not found" });
+  }
+});
+
 // Telegram Long Polling
 let lastUpdateId = 0;
 
@@ -161,8 +250,12 @@ async function startServer() {
   // Vite middleware for development
   if (process.env.NODE_ENV !== "production") {
     const { createServer: createViteServer } = await import("vite");
+    const hmrPort = 24678 + Math.floor(Math.random() * 1000);
     const vite = await createViteServer({
-      server: { middlewareMode: true },
+      server: { 
+        middlewareMode: true,
+        hmr: { port: hmrPort }
+      },
       appType: "spa",
     });
     app.use(vite.middlewares);
@@ -178,9 +271,33 @@ async function startServer() {
 
   // Only listen if NOT on Vercel (Vercel handles listening)
   if (!process.env.VERCEL) {
-    app.listen(PORT, "0.0.0.0", () => {
+    const server = app.listen(PORT, "0.0.0.0", () => {
       console.log(`Server running on http://localhost:${PORT}`);
+    }).on('error', (err: NodeJS.ErrnoException) => {
+      if (err.code === 'EADDRINUSE') {
+        console.error(`Port ${PORT} is already in use. This usually means a stale server process is still running. Please use the 'Restart Dev Server' tool to cleanly restart the environment.`);
+        process.exit(1);
+      } else {
+        console.error('Server error:', err);
+      }
     });
+
+    // Graceful shutdown handling
+    const shutdown = () => {
+      console.log('Shutting down server...');
+      server.close(() => {
+        console.log('Server closed.');
+        process.exit(0);
+      });
+      // Force close after 5 seconds
+      setTimeout(() => {
+        console.error('Could not close connections in time, forcefully shutting down');
+        process.exit(1);
+      }, 5000);
+    };
+
+    process.on('SIGTERM', shutdown);
+    process.on('SIGINT', shutdown);
   }
 }
 

@@ -136,7 +136,7 @@ export default function CRMLeadPipeline() {
             }
             
             console.log(`Finished import loop, imported count: ${imported}`);
-            alert(`Successfully imported ${imported} leads!`);
+            console.log(`Successfully imported ${imported} leads!`);
             await fetchLeads();
             setImporting(false);
             if (inputElement) {
@@ -145,7 +145,7 @@ export default function CRMLeadPipeline() {
           },
           error: function(error: any) {
             console.error("PapaParse error:", error);
-            alert("Failed to parse CSV: " + error.message);
+            console.log("Failed to parse CSV: " + error.message);
             setImporting(false);
             if (inputElement) {
               inputElement.value = '';
@@ -154,7 +154,7 @@ export default function CRMLeadPipeline() {
         });
       } catch (error: any) {
         console.error("Error parsing CSV:", error);
-        alert(`Failed to parse CSV: ${error.message || JSON.stringify(error)}`);
+        console.log(`Failed to parse CSV: ${error.message || JSON.stringify(error)}`);
         setImporting(false);
         if (inputElement) {
           inputElement.value = '';
@@ -164,7 +164,7 @@ export default function CRMLeadPipeline() {
 
     reader.onerror = () => {
       console.error("Error reading file");
-      alert("Failed to read the file.");
+      console.log("Failed to read the file.");
       setImporting(false);
       if (inputElement) {
         inputElement.value = '';
@@ -221,10 +221,10 @@ export default function CRMLeadPipeline() {
         nextStep: "Follow-Up Ongoing"
       });
       fetchLeads();
-      alert("Email sent successfully!");
+      console.log("Email sent successfully!");
     } catch (e: any) {
       console.error("Error sending email:", e);
-      alert(e.message || "Failed to send email. Check API permissions.");
+      console.log(e.message || "Failed to send email. Check API permissions.");
     }
   };
 
@@ -273,10 +273,10 @@ export default function CRMLeadPipeline() {
         last_touch_date: new Date().toISOString()
       });
       fetchLeads();
-      alert("Event scheduled and invite sent via Google Calendar!");
+      console.log("Event scheduled and invite sent via Google Calendar!");
     } catch (e: any) {
       console.error("Error scheduling:", e);
-      alert(e.message || "Failed to schedule call.");
+      console.log(e.message || "Failed to schedule call.");
     }
   };
 
@@ -313,10 +313,10 @@ export default function CRMLeadPipeline() {
       });
       
       fetchLeads();
-      alert("Successfully converted to active Client & Project created!");
+      console.log("Successfully converted to active Client & Project created!");
     } catch (e: any) {
       console.error("Conversion error:", e);
-      alert(`Failed to convert lead: ${e.message || JSON.stringify(e)}`);
+      console.log(`Failed to convert lead: ${e.message || JSON.stringify(e)}`);
     }
   };
 
@@ -329,6 +329,9 @@ export default function CRMLeadPipeline() {
   const handleLeadStatusChange = async (lead: Lead, newStatus: Lead["status"]) => {
     let calendarDidSync = false;
     let updatedLead = { ...lead, status: newStatus, last_touch_date: new Date().toISOString() };
+
+    // Optimistically update the UI state first
+    setLeads(prevLeads => prevLeads.map(l => l.id === lead.id ? updatedLead : l));
 
     // Auto-schedule if status is Proposal and meeting_date is present and not yet synced
     if (
@@ -364,10 +367,12 @@ export default function CRMLeadPipeline() {
             calendarDidSync = true;
             updatedLead.meeting_status = "Scheduled";
             updatedLead.nextStep = "Meeting Scheduled";
+            // Re-update the UI with the calendar info
+            setLeads(prevLeads => prevLeads.map(l => l.id === lead.id ? updatedLead : l));
           } else {
             const errText = await res.text();
             if (res.status === 401) {
-                alert("Automated Calendar Sync Failed: Your Google session has expired. Please log out and back in to refresh it.");
+                console.log("Automated Calendar Sync Failed: Your Google session has expired. Please log out and back in to refresh it.");
             }
             console.error("Calendar sync failed:", errText);
           }
@@ -377,10 +382,14 @@ export default function CRMLeadPipeline() {
       }
     }
 
-    await dbService.update("leads", lead.id, updatedLead);
-    fetchLeads();
-    
-    if (calendarDidSync) alert("Event automatically scheduled via Google Calendar!");
+    try {
+      await dbService.update("leads", lead.id, updatedLead);
+      if (calendarDidSync) console.log("Event automatically scheduled via Google Calendar!");
+    } catch (error) {
+      console.error("Failed to update lead status:", error);
+      // Revert the optimistic update on failure
+      setLeads(prevLeads => prevLeads.map(l => l.id === lead.id ? lead : l));
+    }
   };
 
   const handleSaveLead = async (e: React.FormEvent) => {
@@ -426,6 +435,9 @@ export default function CRMLeadPipeline() {
         
         let calendarDidSync = false;
 
+        // Optimistically update the UI for edit
+        setLeads(prevLeads => prevLeads.map(l => l.id === editingLead.id ? (finalForm as unknown as Lead) : l));
+
         // Auto-schedule if status is Proposal and meeting_date is present and not yet synced
         if (
           finalForm.status === "Proposal" && 
@@ -461,10 +473,12 @@ export default function CRMLeadPipeline() {
               calendarDidSync = true;
               finalForm.meeting_status = "Scheduled";
               finalForm.nextStep = "Meeting Scheduled";
+              // Update optimistic UI with scheduled status
+              setLeads(prevLeads => prevLeads.map(l => l.id === editingLead.id ? (finalForm as unknown as Lead) : l));
             } else {
               const errText = await res.text();
               if (res.status === 401) {
-                  alert("Automated Calendar Sync Failed: Your Google session has expired. Please log out and back in to refresh it.");
+                  console.log("Automated Calendar Sync Failed: Your Google session has expired. Please log out and back in to refresh it.");
               }
               console.error("Calendar sync failed:", errText);
             }
@@ -473,20 +487,27 @@ export default function CRMLeadPipeline() {
           }
         }
 
-        await dbService.update("leads", editingLead.id, finalForm);
-        
-        // Auto-create task if follow-up date changed or was set
-        if (finalForm.followup_date && finalForm.followup_date !== editingLead.followup_date) {
-          await createTaskForFollowup(finalForm.name || editingLead.name, finalForm.company || editingLead.company, finalForm.followup_date);
+        try {
+          await dbService.update("leads", editingLead.id, finalForm);
+          
+          // Auto-create task if follow-up date changed or was set
+          if (finalForm.followup_date && finalForm.followup_date !== editingLead.followup_date) {
+            await createTaskForFollowup(finalForm.name || editingLead.name, finalForm.company || editingLead.company, finalForm.followup_date);
+          }
+          
+          setEditingLead(null);
+          // fetchLeads(); // No need, optimistic update succeeded
+          if (calendarDidSync) console.log("Event automatically scheduled via Google Calendar!");
+        } catch (error) {
+          console.error("Failed to update lead status:", error);
+          // Revert optimistic update
+          setLeads(prevLeads => prevLeads.map(l => l.id === editingLead.id ? editingLead : l));
+          throw error; // Let the outer catch handle the alert/logging
         }
-        
-        setEditingLead(null);
-        fetchLeads();
-        if (calendarDidSync) alert("Event automatically scheduled via Google Calendar!");
       }
     } catch (error: any) {
       console.error("Error saving lead:", error);
-      alert(`Failed to save lead: ${error.message || JSON.stringify(error)}`);
+      console.log(`Failed to save lead: ${error.message || JSON.stringify(error)}`);
     } finally {
       setIsUpdating(false);
     }
@@ -500,7 +521,7 @@ export default function CRMLeadPipeline() {
       fetchLeads();
     } catch (error) {
       console.error("Error deleting lead:", error);
-      alert("Failed to delete lead.");
+      console.log("Failed to delete lead.");
     }
   };
 

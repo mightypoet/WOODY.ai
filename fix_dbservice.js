@@ -1,11 +1,13 @@
-import { supabase } from '../utils/supabase';
+import fs from 'fs';
+
+const dbServiceContent = `import { supabase } from '../utils/supabase';
 
 export const toUUID = (id: any) => {
   if (!id) return id;
   const str = String(id);
   if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str)) return str;
   if (/^d+$/.test(str)) {
-    return `00000000-0000-0000-0000-${str.padStart(12, '0')}`;
+    return \`00000000-0000-0000-0000-\${str.padStart(12, '0')}\`;
   }
   return id;
 };
@@ -20,43 +22,8 @@ export const fromUUID = (uuid: any) => {
   return uuid;
 };
 
-// Simple fetch wrapper to handle our local backend DB API
-const apiRequest = async (method: string, path: string, body?: any) => {
-  try {
-    const res = await fetch(`/api/store${path}`, {
-      method,
-      headers: body ? { 'Content-Type': 'application/json' } : undefined,
-      body: body ? JSON.stringify(body) : undefined
-    });
-    if (!res.ok) {
-      if (res.status === 404) throw new Error("Not found");
-      throw new Error("API error: " + res.status);
-    }
-    return await res.json();
-  } catch (error: any) {
-    if (error.message !== "Not found") {
-      console.error(`API request failed: ${method} ${path}`, error);
-    }
-    throw error;
-  }
-};
-
 export const dbService = {
   async create(table: string, data: any) {
-    if (table !== 'leads') {
-      try {
-        const payload = { ...data };
-        if (!payload.createdAt) {
-          payload.createdAt = new Date().toISOString();
-        }
-        const insertedData = await apiRequest('POST', `/${table}`, payload);
-        return insertedData.id;
-      } catch (error) {
-        console.error(`Create error in ${table}:`, error);
-        throw error;
-      }
-    }
-    
     try {
       const payload = { ...data };
       if (!payload.createdAt && !payload.created_at) {
@@ -80,7 +47,7 @@ export const dbService = {
       
       return insertedData.id;
     } catch (error) {
-      console.error(`Create error in ${table}:`, error);
+      console.error(\`Create error in \${table}:\`, error);
       throw error;
     }
   },
@@ -90,16 +57,6 @@ export const dbService = {
   },
   
   async update(table: string, id: string, data: any) {
-    if (table !== 'leads') {
-      try {
-        await apiRequest('PUT', `/${table}/${id}`, data);
-        return;
-      } catch (error) {
-        console.error(`Update error in ${table}/${id}:`, error);
-        throw error;
-      }
-    }
-    
     try {
       let finalPayload = { ...data };
       if (table === 'leads') { 
@@ -115,20 +72,12 @@ export const dbService = {
         
       if (error) throw error;
     } catch (error) {
-      console.error(`Update error in ${table}/${id}:`, error);
+      console.error(\`Update error in \${table}/\${id}:\`, error);
       throw error;
     }
   },
   
   async get(table: string, id: string) {
-    if (table !== 'leads') {
-      try {
-        return await apiRequest('GET', `/${table}/${id}`);
-      } catch (error) {
-        return null;
-      }
-    }
-    
     try {
       const { data, error } = await supabase
         .from(table)
@@ -136,42 +85,15 @@ export const dbService = {
         .eq('id', id)
         .single();
         
-      if (error) {
-        if (error.code === 'PGRST116') return null; // Not found
-        throw error;
-      }
+      if (error) throw error;
       return data;
     } catch (error) {
-      console.error(`Get error in ${table}/${id}:`, error);
+      console.error(\`Get error in \${table}/\${id}:\`, error);
       return null;
     }
   },
   
   async list(table: string, filters?: { field: string, operator: string, value: any }[]) {
-    if (table !== 'leads') {
-      try {
-        let result = await apiRequest('GET', `/${table}`);
-        if (filters && result.length > 0) {
-          result = result.filter((item: any) => {
-            return filters.every(f => {
-              if (f.operator === '==') return item[f.field] === f.value;
-              if (f.operator === '!=') return item[f.field] !== f.value;
-              if (f.operator === '>') return item[f.field] > f.value;
-              if (f.operator === '<') return item[f.field] < f.value;
-              if (f.operator === '>=') return item[f.field] >= f.value;
-              if (f.operator === '<=') return item[f.field] <= f.value;
-              if (f.operator === 'in') return Array.isArray(f.value) && f.value.includes(item[f.field]);
-              return true;
-            });
-          });
-        }
-        return result;
-      } catch (error) {
-        console.error(`List error in ${table}:`, error);
-        return [];
-      }
-    }
-    
     try {
       let query = supabase.from(table).select('*');
       
@@ -191,22 +113,12 @@ export const dbService = {
       if (error) throw error;
       return data || [];
     } catch (error) {
-      console.error(`List error in ${table}:`, error);
+      console.error(\`List error in \${table}:\`, error);
       return [];
     }
   },
   
   async delete(table: string, id: string) {
-    if (table !== 'leads') {
-      try {
-        await apiRequest('DELETE', `/${table}/${id}`);
-        return;
-      } catch (error) {
-        console.error(`Delete error in ${table}/${id}:`, error);
-        throw error;
-      }
-    }
-    
     try {
       const { error } = await supabase
         .from(table)
@@ -215,7 +127,7 @@ export const dbService = {
         
       if (error) throw error;
     } catch (error) {
-      console.error(`Delete error in ${table}/${id}:`, error);
+      console.error(\`Delete error in \${table}/\${id}:\`, error);
       throw error;
     }
   },
@@ -228,12 +140,7 @@ export const dbService = {
     
     fetchAndCallback();
     
-    if (table !== 'leads') {
-      const interval = setInterval(fetchAndCallback, 5000);
-      return () => clearInterval(interval);
-    }
-    
-    const channel = supabase.channel(`public:${table}`)
+    const channel = supabase.channel(\`public:\${table}\`)
       .on('postgres_changes', { event: '*', schema: 'public', table: table }, () => {
         fetchAndCallback();
       })
@@ -253,3 +160,6 @@ export const testConnection = async () => {
     return false;
   }
 };
+`;
+
+fs.writeFileSync('src/services/dbService.ts', dbServiceContent);
