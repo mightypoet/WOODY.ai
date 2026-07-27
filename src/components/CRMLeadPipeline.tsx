@@ -22,6 +22,12 @@ export default function CRMLeadPipeline() {
   const [isUpdating, setIsUpdating] = useState(false);
   const [isCreatingLead, setIsCreatingLead] = useState(false);
   const [formPage, setFormPage] = useState(0);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  const showToast = (message: string) => {
+    setToastMessage(message);
+    setTimeout(() => setToastMessage(null), 3000);
+  };
 
   const [viewMode, setViewMode] = useState<"kanban" | "list" | "dashboard">("kanban");
 
@@ -51,7 +57,15 @@ export default function CRMLeadPipeline() {
   };
 
   useEffect(() => {
+    const unsubscribe = dbService.subscribe("leads", (data) => {
+      setLeads(data as unknown as Lead[]);
+    });
+    
     fetchLeads();
+
+    return () => {
+      if (unsubscribe) unsubscribe();
+    };
   }, []);
 
   const fetchLeads = async () => {
@@ -385,10 +399,11 @@ export default function CRMLeadPipeline() {
     try {
       await dbService.update("leads", lead.id, updatedLead);
       if (calendarDidSync) console.log("Event automatically scheduled via Google Calendar!");
-    } catch (error) {
+    } catch (error: any) {
       console.error("Failed to update lead status:", error);
       // Revert the optimistic update on failure
       setLeads(prevLeads => prevLeads.map(l => l.id === lead.id ? lead : l));
+      showToast(`Failed to update lead status: ${error.message || JSON.stringify(error)}`);
     }
   };
 
@@ -415,9 +430,9 @@ export default function CRMLeadPipeline() {
           meeting_status: editForm.meeting_status || "",
           call_outcome: editForm.call_outcome || "",
           loss_reason: editForm.loss_reason || "",
-          total_deal_value: editForm.total_deal_value || 0,
-          cash_collected: editForm.cash_collected || 0,
-          commission_percentage: editForm.commission_percentage || 0,
+          total_deal_value: Number(editForm.total_deal_value) || 0,
+          cash_collected: Number(editForm.cash_collected) || 0,
+          commission_percentage: Number(editForm.commission_percentage) || 0,
           last_touch_date: new Date().toISOString()
         };
         await dbService.create("leads", newLeadDetails);
@@ -426,12 +441,17 @@ export default function CRMLeadPipeline() {
         }
         setIsCreatingLead(false);
         fetchLeads();
+        showToast("Lead created successfully!");
       } else if (editingLead) {
         let finalForm = { ...editForm, id: editingLead.id, last_touch_date: new Date().toISOString() };
         if (finalForm.followup_date === "") finalForm.followup_date = null as any;
         if (finalForm.meeting_date === "") finalForm.meeting_date = null as any;
         if (finalForm.first_contact_date === "") finalForm.first_contact_date = null as any;
         if (finalForm.date_of_meeting === "") finalForm.date_of_meeting = null as any;
+        
+        finalForm.total_deal_value = Number(finalForm.total_deal_value) || 0;
+        finalForm.cash_collected = Number(finalForm.cash_collected) || 0;
+        finalForm.commission_percentage = Number(finalForm.commission_percentage) || 0;
         
         let calendarDidSync = false;
 
@@ -498,6 +518,7 @@ export default function CRMLeadPipeline() {
           setEditingLead(null);
           // fetchLeads(); // No need, optimistic update succeeded
           if (calendarDidSync) console.log("Event automatically scheduled via Google Calendar!");
+          showToast("Lead updated successfully!");
         } catch (error) {
           console.error("Failed to update lead status:", error);
           // Revert optimistic update
@@ -507,7 +528,7 @@ export default function CRMLeadPipeline() {
       }
     } catch (error: any) {
       console.error("Error saving lead:", error);
-      console.log(`Failed to save lead: ${error.message || JSON.stringify(error)}`);
+      showToast(`Failed to save lead: ${error.message || JSON.stringify(error)}`);
     } finally {
       setIsUpdating(false);
     }
@@ -979,7 +1000,7 @@ export default function CRMLeadPipeline() {
               <button
                 type="submit"
                 disabled={isUpdating}
-                className="px-6 py-2 bg-indigo-600 text-white hover:bg-indigo-500 text-sm font-semibold rounded-xl transition-all disabled:opacity-50"
+                className="px-6 py-2 bg-indigo-600 text-white hover:bg-indigo-500 text-sm font-semibold rounded-xl transition-all disabled:opacity-50 shadow-lg shadow-indigo-500/20 focus:ring-2 focus:ring-indigo-500/50 active:scale-95"
               >
                 {isUpdating ? "Saving..." : "Save Changes"}
               </button>
@@ -987,6 +1008,14 @@ export default function CRMLeadPipeline() {
           </div>
         </form>
       </Modal>
+
+      {/* Toast Notification */}
+      {toastMessage && (
+        <div className="fixed bottom-6 right-6 bg-zinc-800 text-white px-6 py-3 rounded-lg shadow-xl border border-zinc-700 flex items-center gap-3 animate-in slide-in-from-bottom-5">
+          <div className="w-2 h-2 rounded-full bg-green-500"></div>
+          {toastMessage}
+        </div>
+      )}
     </div>
   );
 }
