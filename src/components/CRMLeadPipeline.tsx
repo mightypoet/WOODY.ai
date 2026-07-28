@@ -397,7 +397,15 @@ export default function CRMLeadPipeline() {
     }
 
     try {
-      await dbService.update("leads", lead.id, updatedLead);
+      const partialUpdate: any = {
+        status: updatedLead.status,
+        last_touch_date: updatedLead.last_touch_date,
+      };
+      if (calendarDidSync) {
+        partialUpdate.meeting_status = updatedLead.meeting_status;
+        partialUpdate.nextStep = updatedLead.nextStep;
+      }
+      await dbService.update("leads", lead.id, partialUpdate);
       if (calendarDidSync) console.log("Event automatically scheduled via Google Calendar!");
     } catch (error: any) {
       console.error("Failed to update lead status:", error);

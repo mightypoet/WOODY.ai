@@ -68,9 +68,14 @@ export const dbService = {
         delete finalPayload.calendar_synced; 
         delete finalPayload.lastContactDate; 
         delete finalPayload.nextStep; 
+        delete finalPayload.earnings;
+        delete finalPayload.created_at;
+        delete finalPayload.id;
       }
       if (table === 'users') {
         delete finalPayload.email;
+        delete finalPayload.createdAt;
+        delete finalPayload.created_at;
       }
       
       const { data: insertedData, error } = await supabase
@@ -113,10 +118,15 @@ export const dbService = {
       if (table === 'leads') { 
         delete finalPayload.calendar_synced; 
         delete finalPayload.lastContactDate; 
-        delete finalPayload.nextStep; 
+        delete finalPayload.nextStep;
+        delete finalPayload.earnings;
+        delete finalPayload.created_at;
+        delete finalPayload.id;
       }
       if (table === 'users') {
         delete finalPayload.email;
+        delete finalPayload.createdAt;
+        delete finalPayload.created_at;
       }
       
       const { error } = await supabase
