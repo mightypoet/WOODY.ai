@@ -43,7 +43,7 @@ const apiRequest = async (method: string, path: string, body?: any) => {
 
 export const dbService = {
   async create(table: string, data: any) {
-    if (table !== 'leads' && table !== 'users') {
+    if (table !== 'leads' && table !== 'users' && table !== 'sheets') {
       try {
         const payload = { ...data };
         if (!payload.createdAt) {
@@ -103,7 +103,7 @@ export const dbService = {
   },
   
   async update(table: string, id: string, data: any) {
-    if (table !== 'leads' && table !== 'users') {
+    if (table !== 'leads' && table !== 'users' && table !== 'sheets') {
       try {
         await apiRequest('PUT', `/${table}/${id}`, data);
         return;
@@ -147,7 +147,7 @@ export const dbService = {
   },
   
   async get(table: string, id: string) {
-    if (table !== 'leads' && table !== 'users') {
+    if (table !== 'leads' && table !== 'users' && table !== 'sheets') {
       try {
         return await apiRequest('GET', `/${table}/${id}`);
       } catch (error) {
@@ -174,7 +174,7 @@ export const dbService = {
   },
   
   async list(table: string, filters?: { field: string, operator: string, value: any }[]) {
-    if (table !== 'leads' && table !== 'users') {
+    if (table !== 'leads' && table !== 'users' && table !== 'sheets') {
       try {
         let result = await apiRequest('GET', `/${table}`);
         if (filters && result.length > 0) {
@@ -223,7 +223,7 @@ export const dbService = {
   },
   
   async delete(table: string, id: string) {
-    if (table !== 'leads' && table !== 'users') {
+    if (table !== 'leads' && table !== 'users' && table !== 'sheets') {
       try {
         await apiRequest('DELETE', `/${table}/${id}`);
         return;
@@ -254,7 +254,7 @@ export const dbService = {
     
     fetchAndCallback();
     
-    if (table !== 'leads' && table !== 'users') {
+    if (table !== 'leads' && table !== 'users' && table !== 'sheets') {
       const interval = setInterval(fetchAndCallback, 5000);
       return () => clearInterval(interval);
     }

@@ -133,6 +133,7 @@ export interface Lead {
   total_deal_value?: number;
   cash_collected?: number;
   commission_percentage?: number;
+  sheet_id?: string;
 }
 
 export interface DailyActivity {
@@ -142,4 +143,10 @@ export interface DailyActivity {
   dials: number;
   dms: number;
   createdAt?: string;
+}
+
+export interface Sheet {
+  id: string;
+  name: string;
+  created_at?: string;
 }

@@ -1,7 +1,7 @@
 import React,
  { useState, useEffect } from "react";
 import Papa from 'papaparse';
-import { User, Lead } from "../types";
+import { User, Lead, Sheet } from "../types";
 import { getAccessToken } from "../services/googleAuth";
 import { dbService } from "../services/dbService";
 import { motion } from "motion/react";
@@ -30,9 +30,13 @@ export default function CRMLeadPipeline() {
   };
 
   const [viewMode, setViewMode] = useState<"kanban" | "list" | "dashboard">("kanban");
+  const [sheets, setSheets] = useState<Sheet[]>([]);
+  const [activeSheetId, setActiveSheetId] = useState<string | null>(null);
+  const [isCreatingSheet, setIsCreatingSheet] = useState(false);
+  const [newSheetName, setNewSheetName] = useState("");
 
   const handleCreateLeadClick = () => {
-    setEditForm({ status: "New" });
+    setEditForm({ status: "New", sheet_id: activeSheetId || undefined });
     setEditingLead(null);
     setIsCreatingLead(true);
     setFormPage(0);
@@ -61,12 +65,41 @@ export default function CRMLeadPipeline() {
       setLeads(data as unknown as Lead[]);
     });
     
+    fetchSheets();
     fetchLeads();
 
     return () => {
       if (unsubscribe) unsubscribe();
     };
   }, []);
+
+  const fetchSheets = async () => {
+    try {
+      const data = await dbService.list("sheets");
+      setSheets(data as Sheet[]);
+      if (data.length > 0 && !activeSheetId) {
+        setActiveSheetId(data[0].id);
+      }
+    } catch (e) {
+      console.error("Sheets fetch error", e);
+    }
+  };
+
+  const handleCreateSheet = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newSheetName.trim()) return;
+    try {
+      const newId = await dbService.create("sheets", { name: newSheetName });
+      setIsCreatingSheet(false);
+      setNewSheetName("");
+      await fetchSheets();
+      setActiveSheetId(newId);
+      showToast("Sheet created successfully!");
+    } catch (e: any) {
+      console.error(e);
+      showToast(e.message || "Failed to create sheet");
+    }
+  };
 
   const fetchLeads = async () => {
     setLoading(true);
@@ -151,6 +184,7 @@ export default function CRMLeadPipeline() {
             
             console.log(`Finished import loop, imported count: ${imported}`);
             console.log(`Successfully imported ${imported} leads!`);
+    fetchSheets();
             await fetchLeads();
             setImporting(false);
             if (inputElement) {
@@ -234,6 +268,7 @@ export default function CRMLeadPipeline() {
         last_touch_date: new Date().toISOString(),
         nextStep: "Follow-Up Ongoing"
       });
+    fetchSheets();
       fetchLeads();
       console.log("Email sent successfully!");
     } catch (e: any) {
@@ -286,6 +321,7 @@ export default function CRMLeadPipeline() {
         nextStep: "Discovery Call Scheduled",
         last_touch_date: new Date().toISOString()
       });
+    fetchSheets();
       fetchLeads();
       console.log("Event scheduled and invite sent via Google Calendar!");
     } catch (e: any) {
@@ -326,6 +362,7 @@ export default function CRMLeadPipeline() {
         last_touch_date: new Date().toISOString()
       });
       
+    fetchSheets();
       fetchLeads();
       console.log("Successfully converted to active Client & Project created!");
     } catch (e: any) {
@@ -429,6 +466,7 @@ export default function CRMLeadPipeline() {
     try {
       if (isCreatingLead) {
           const newLeadDetails = {
+          sheet_id: editForm.sheet_id || null,
           name: editForm.name || "",
           email: editForm.email || "",
           company: editForm.company || "",
@@ -455,6 +493,7 @@ export default function CRMLeadPipeline() {
             await createTaskForFollowup(newLeadDetails.name, newLeadDetails.company, newLeadDetails.followup_date);
         }
         setIsCreatingLead(false);
+    fetchSheets();
         fetchLeads();
         showToast("Lead created successfully!");
       } else if (editingLead) {
@@ -534,6 +573,7 @@ export default function CRMLeadPipeline() {
           }
           
           setEditingLead(null);
+    fetchSheets();
           // fetchLeads(); // No need, optimistic update succeeded
           if (calendarDidSync) console.log("Event automatically scheduled via Google Calendar!");
           showToast("Lead updated successfully!");
@@ -557,6 +597,7 @@ export default function CRMLeadPipeline() {
     try {
       await dbService.delete("leads", leadId);
       if (editingLead?.id === leadId) setEditingLead(null);
+    fetchSheets();
       fetchLeads();
     } catch (error) {
       console.error("Error deleting lead:", error);
@@ -565,7 +606,7 @@ export default function CRMLeadPipeline() {
   };
 
   const renderPipelineColumn = (status: "New" | "Proposal" | "Deposit" | "Follow-Up Ongoing" | "Meeting Follow-Up" | "Won" | "Lost") => {
-    const columnLeads = leads.filter(l => l.status === status);
+    const columnLeads = activeLeads.filter(l => l.status === status);
     
     return (
       <div className="flex-1 min-w-[280px] bg-zinc-900/50 rounded-2xl p-4 border border-white/5 flex flex-col h-full">
@@ -667,6 +708,7 @@ export default function CRMLeadPipeline() {
     );
   };
 
+  const activeLeads = activeSheetId ? leads.filter(l => l.sheet_id === activeSheetId) : leads.filter(l => !l.sheet_id);
   return (
     <div className="h-full flex flex-col bg-zinc-950 p-6">
       <header className="flex items-center justify-between shrink-0 mb-6">
@@ -716,6 +758,30 @@ export default function CRMLeadPipeline() {
           </button>
         </div>
       </header>
+      {/* Sheets Tabs */}
+      <div className="flex items-center gap-2 mb-6 overflow-x-auto pb-2 custom-scrollbar">
+        <button
+          onClick={() => setActiveSheetId(null)}
+          className={`px-4 py-2 text-sm font-medium rounded-xl whitespace-nowrap transition-colors ${!activeSheetId ? "bg-indigo-600 text-white" : "bg-zinc-900 text-zinc-400 hover:text-white hover:bg-zinc-800"}`}
+        >
+          Main Board
+        </button>
+        {sheets.map(sheet => (
+          <button
+            key={sheet.id}
+            onClick={() => setActiveSheetId(sheet.id)}
+            className={`px-4 py-2 text-sm font-medium rounded-xl whitespace-nowrap transition-colors ${activeSheetId === sheet.id ? "bg-indigo-600 text-white" : "bg-zinc-900 text-zinc-400 hover:text-white hover:bg-zinc-800"}`}
+          >
+            {sheet.name}
+          </button>
+        ))}
+        <button
+          onClick={() => setIsCreatingSheet(true)}
+          className="px-3 py-2 flex items-center gap-2 text-sm font-medium rounded-xl bg-zinc-900 text-zinc-400 hover:text-white hover:bg-zinc-800 border border-dashed border-zinc-700 whitespace-nowrap transition-colors"
+        >
+          <Plus size={16} /> Add Sheet
+        </button>
+      </div>
 
       {viewMode === "kanban" && (
         <div className="bg-zinc-900/40 border border-white/5 rounded-2xl p-4 mb-6 shrink-0 flex items-center gap-4">
@@ -755,9 +821,9 @@ export default function CRMLeadPipeline() {
           {renderPipelineColumn("Lost")}
         </div>
       ) : viewMode === "list" ? (
-        <LeadLog leads={leads} />
+        <LeadLog leads={activeLeads} />
       ) : (
-        <VisibilityDashboard leads={leads} />
+        <VisibilityDashboard leads={activeLeads} />
       )}
 
       <Modal
@@ -796,6 +862,17 @@ export default function CRMLeadPipeline() {
                   onChange={e => setEditForm({ ...editForm, company: e.target.value })}
                   className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-zinc-500 transition-all mt-1 text-white"
                 />
+              </div>
+              <div>
+                <label className="text-xs text-zinc-500 uppercase font-mono tracking-widest">Sheet</label>
+                <select
+                  value={editForm.sheet_id || ""}
+                  onChange={e => setEditForm({ ...editForm, sheet_id: e.target.value || null })}
+                  className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-zinc-500 transition-all mt-1 text-white"
+                >
+                  <option value="">Main Board (No Sheet)</option>
+                  {sheets.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                </select>
               </div>
               <div>
                 <label className="text-xs text-zinc-500 uppercase font-mono tracking-widest">Status</label>
@@ -1023,6 +1100,29 @@ export default function CRMLeadPipeline() {
                 {isUpdating ? "Saving..." : "Save Changes"}
               </button>
             )}
+          </div>
+        </form>
+      </Modal>
+
+      <Modal isOpen={isCreatingSheet} onClose={() => setIsCreatingSheet(false)} title="Create New Sheet">
+        <form onSubmit={handleCreateSheet} className="space-y-4">
+          <div>
+            <label className="text-xs text-zinc-500 uppercase font-mono tracking-widest">Sheet Name</label>
+            <input
+              required
+              autoFocus
+              type="text"
+              value={newSheetName}
+              onChange={e => setNewSheetName(e.target.value)}
+              placeholder="e.g., Q3 Marketing Leads"
+              className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-indigo-500 transition-all mt-1 text-white"
+            />
+          </div>
+          <div className="flex justify-end gap-3 mt-6">
+            <button type="button" onClick={() => setIsCreatingSheet(false)} className="px-4 py-2 text-sm text-zinc-400 hover:text-white">Cancel</button>
+            <button type="submit" className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold rounded-xl transition-colors shadow-md">
+              Create Sheet
+            </button>
           </div>
         </form>
       </Modal>
