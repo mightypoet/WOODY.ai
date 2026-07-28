@@ -76,7 +76,12 @@ export const dbService = {
         .select()
         .single();
         
-      if (error) throw error;
+      if (error) {
+        if (error.code === '42501') {
+          throw new Error('Supabase RLS Error: You do not have permission to insert rows. Please check your Row Level Security policies in Supabase.');
+        }
+        throw error;
+      }
       
       return insertedData.id;
     } catch (error) {
@@ -113,7 +118,12 @@ export const dbService = {
         .update(finalPayload)
         .eq('id', id);
         
-      if (error) throw error;
+      if (error) {
+        if (error.code === '42501') {
+          throw new Error('Supabase RLS Error: You do not have permission to update rows. Please check your Row Level Security policies in Supabase.');
+        }
+        throw error;
+      }
     } catch (error) {
       console.error(`Update error in ${table}/${id}:`, error);
       throw error;

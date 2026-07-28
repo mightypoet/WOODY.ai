@@ -410,6 +410,13 @@ export default function CRMLeadPipeline() {
   const handleSaveLead = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingLead && !isCreatingLead) return;
+    
+    if (isCreatingLead && (!editForm.name || !editForm.email)) {
+      showToast("Failed: Name and Email are required.");
+      setFormPage(0);
+      return;
+    }
+
     setIsUpdating(true);
     try {
       if (isCreatingLead) {
@@ -427,9 +434,9 @@ export default function CRMLeadPipeline() {
           closer_name: editForm.closer_name || "",
           first_contact_date: editForm.first_contact_date || null,
           date_of_meeting: editForm.date_of_meeting || null,
-          meeting_status: editForm.meeting_status || "",
-          call_outcome: editForm.call_outcome || "",
-          loss_reason: editForm.loss_reason || "",
+          meeting_status: editForm.meeting_status || null,
+          call_outcome: editForm.call_outcome || null,
+          loss_reason: editForm.loss_reason || null,
           total_deal_value: Number(editForm.total_deal_value) || 0,
           cash_collected: Number(editForm.cash_collected) || 0,
           commission_percentage: Number(editForm.commission_percentage) || 0,
@@ -448,6 +455,9 @@ export default function CRMLeadPipeline() {
         if (finalForm.meeting_date === "") finalForm.meeting_date = null as any;
         if (finalForm.first_contact_date === "") finalForm.first_contact_date = null as any;
         if (finalForm.date_of_meeting === "") finalForm.date_of_meeting = null as any;
+        if (finalForm.meeting_status === "") finalForm.meeting_status = null as any;
+        if (finalForm.call_outcome === "") finalForm.call_outcome = null as any;
+        if (finalForm.loss_reason === "") finalForm.loss_reason = null as any;
         
         finalForm.total_deal_value = Number(finalForm.total_deal_value) || 0;
         finalForm.cash_collected = Number(finalForm.cash_collected) || 0;
@@ -1011,8 +1021,8 @@ export default function CRMLeadPipeline() {
 
       {/* Toast Notification */}
       {toastMessage && (
-        <div className="fixed bottom-6 right-6 bg-zinc-800 text-white px-6 py-3 rounded-lg shadow-xl border border-zinc-700 flex items-center gap-3 animate-in slide-in-from-bottom-5">
-          <div className="w-2 h-2 rounded-full bg-green-500"></div>
+        <div className={`fixed bottom-6 right-6 px-6 py-3 rounded-lg shadow-xl border flex items-center gap-3 animate-in slide-in-from-bottom-5 z-[9999] ${toastMessage.includes('Failed') ? 'bg-red-900/90 border-red-800 text-white' : 'bg-zinc-800 text-white border-zinc-700'}`}>
+          <div className={`w-2 h-2 rounded-full ${toastMessage.includes('Failed') ? 'bg-red-400' : 'bg-green-500'}`}></div>
           {toastMessage}
         </div>
       )}
