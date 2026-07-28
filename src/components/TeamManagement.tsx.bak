@@ -11,6 +11,7 @@ export default function TeamManagement({ user }: { user: User }) {
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [newMember, setNewMember] = useState({
+
     name: '',
     email: '',
     role: 'team_member' as UserRole
@@ -27,7 +28,7 @@ export default function TeamManagement({ user }: { user: User }) {
     const unsub = dbService.subscribe('users', (data) => {
       setMembers(data);
       setLoading(false);
-    });
+  };
     return () => unsub();
   }, []);
 
@@ -41,9 +42,9 @@ export default function TeamManagement({ user }: { user: User }) {
         id: newMember.email,
         name: newMember.name,
         email: newMember.email,
-        role: newMember.role,
-        createdAt: new Date().toISOString()
-      });
+    setToastMessage(msg);
+    setTimeout(() => setToastMessage(null), 3000);
+  };
 
       const res = await fetch("/api/send-email", {
         method: "POST",
@@ -51,9 +52,9 @@ export default function TeamManagement({ user }: { user: User }) {
         body: JSON.stringify({
           to: newMember.email,
           subject: "Welcome to the Team!",
-          html: "<p>Hi " + newMember.name + ",</p><p>You have been added to the team as a " + newMember.role.replace('_', ' ') + ". Welcome aboard!</p>"
-        })
-      });
+    setToastMessage(msg);
+    setTimeout(() => setToastMessage(null), 3000);
+  };
 
       if (!res.ok) {
         const errorData = await res.json().catch(() => ({}));
