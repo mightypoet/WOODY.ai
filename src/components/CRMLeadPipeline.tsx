@@ -5,12 +5,12 @@ import { User, Lead, Sheet } from "../types";
 import { getAccessToken } from "../services/googleAuth";
 import { dbService } from "../services/dbService";
 import { motion } from "motion/react";
-import { Users, Mail, Calendar, FileSpreadsheet, Plus, Upload, Loader2, ArrowRight, CheckCircle2, RotateCcw, Pencil, X, CalendarCheck } from "lucide-react";
+import { Users, UserPlus, Mail, Calendar, FileSpreadsheet, Plus, Upload, Loader2, ArrowRight, CheckCircle2, RotateCcw, Pencil, X, CalendarCheck } from "lucide-react";
 import Modal from "./Modal";
 import LeadLog from "./crm/LeadLog";
 import VisibilityDashboard from "./crm/VisibilityDashboard";
 
-export default function CRMLeadPipeline() {
+export default function CRMLeadPipeline({ user }: { user: User }) {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [loading, setLoading] = useState(false);
   
@@ -33,6 +33,10 @@ export default function CRMLeadPipeline() {
   const [sheets, setSheets] = useState<Sheet[]>([]);
   const [activeSheetId, setActiveSheetId] = useState<string | null>(null);
   const [isCreatingSheet, setIsCreatingSheet] = useState(false);
+  const [isAssigningTeam, setIsAssigningTeam] = useState(false);
+  const [allUsers, setAllUsers] = useState<User[]>([]);
+  const [sheetMembers, setSheetMembers] = useState<string[]>([]);
+  const [isUpdatingMembers, setIsUpdatingMembers] = useState(false);
   const [newSheetName, setNewSheetName] = useState("");
 
   const handleCreateLeadClick = () => {
@@ -75,13 +79,65 @@ export default function CRMLeadPipeline() {
 
   const fetchSheets = async () => {
     try {
-      const data = await dbService.list("sheets");
+      let data = await dbService.list("sheets");
+      if (user.role !== "admin") {
+        const members = await dbService.list("sheet_members");
+        const allowedSheetIds = members.filter((m: any) => m.user_id === user.id).map((m: any) => m.sheet_id);
+        data = data.filter((s: any) => allowedSheetIds.includes(s.id));
+      }
       setSheets(data as Sheet[]);
       if (data.length > 0 && !activeSheetId) {
         setActiveSheetId(data[0].id);
       }
     } catch (e) {
       console.error("Sheets fetch error", e);
+    }
+  };
+
+  const handleOpenAssignModal = async () => {
+    if (!activeSheetId) return;
+    setIsAssigningTeam(true);
+    try {
+      const [usersData, membersData] = await Promise.all([
+        dbService.list("users"),
+        dbService.list("sheet_members")
+      ]);
+      setAllUsers(usersData as User[]);
+      const currentMembers = membersData
+        .filter((m: any) => m.sheet_id === activeSheetId)
+        .map((m: any) => m.user_id);
+      setSheetMembers(currentMembers);
+    } catch (e) {
+      console.error("Failed to load users for assignment", e);
+    }
+  };
+
+  const handleSaveMembers = async () => {
+    if (!activeSheetId) return;
+    setIsUpdatingMembers(true);
+    try {
+      const existingMembers = await dbService.list("sheet_members");
+      const activeMembers = existingMembers.filter((m: any) => m.sheet_id === activeSheetId);
+      
+      // Simple implementation: delete all, then recreate
+      for (const m of activeMembers) {
+        if (m.id) await dbService.delete("sheet_members", m.id);
+      }
+      
+      for (const uid of sheetMembers) {
+        await dbService.create("sheet_members", {
+          sheet_id: activeSheetId,
+          user_id: uid,
+          created_at: new Date().toISOString()
+        });
+      }
+      setIsAssigningTeam(false);
+      showToast("Team assigned successfully!");
+    } catch (e: any) {
+      console.error(e);
+      showToast(e.message || "Failed to update team members");
+    } finally {
+      setIsUpdatingMembers(false);
     }
   };
 
@@ -781,6 +837,14 @@ export default function CRMLeadPipeline() {
         >
           <Plus size={16} /> Add Sheet
         </button>
+        {activeSheetId && user.role === "admin" && (
+          <button
+            onClick={() => handleOpenAssignModal()}
+            className="px-3 py-2 flex items-center gap-2 text-sm font-medium rounded-xl bg-zinc-800 text-indigo-400 hover:text-white hover:bg-indigo-600 border border-zinc-700 whitespace-nowrap transition-colors ml-auto"
+          >
+            <UserPlus size={16} /> Assign Team
+          </button>
+        )}
       </div>
 
       {viewMode === "kanban" && (
@@ -1125,6 +1189,48 @@ export default function CRMLeadPipeline() {
             </button>
           </div>
         </form>
+      </Modal>
+
+      <Modal isOpen={isAssigningTeam} onClose={() => setIsAssigningTeam(false)} title="Assign Team to Sheet">
+        <div className="space-y-4">
+          <p className="text-sm text-zinc-400">Select the users who should have access to this sheet.</p>
+          <div className="max-h-[300px] overflow-y-auto space-y-2 custom-scrollbar">
+            {allUsers.length === 0 ? (
+              <div className="text-sm text-zinc-500 py-4 text-center">No users found.</div>
+            ) : (
+              allUsers.map(u => (
+                <label key={u.id} className="flex items-center gap-3 p-3 rounded-xl border border-zinc-800 hover:bg-zinc-800/50 cursor-pointer transition-colors">
+                  <input
+                    type="checkbox"
+                    checked={sheetMembers.includes(u.id)}
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        setSheetMembers([...sheetMembers, u.id]);
+                      } else {
+                        setSheetMembers(sheetMembers.filter(id => id !== u.id));
+                      }
+                    }}
+                    className="w-4 h-4 rounded bg-zinc-900 border-zinc-700 text-indigo-500 focus:ring-indigo-500/20"
+                  />
+                  <div>
+                    <div className="text-sm font-medium text-white">{u.name}</div>
+                    <div className="text-xs text-zinc-500">{u.email} &bull; {u.role}</div>
+                  </div>
+                </label>
+              ))
+            )}
+          </div>
+          <div className="flex justify-end gap-3 mt-6">
+            <button type="button" onClick={() => setIsAssigningTeam(false)} className="px-4 py-2 text-sm text-zinc-400 hover:text-white">Cancel</button>
+            <button
+              onClick={handleSaveMembers}
+              disabled={isUpdatingMembers}
+              className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold rounded-xl transition-colors shadow-md disabled:opacity-50"
+            >
+              {isUpdatingMembers ? "Saving..." : "Save Team"}
+            </button>
+          </div>
+        </div>
       </Modal>
 
       {/* Toast Notification */}

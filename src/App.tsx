@@ -283,7 +283,7 @@ export default function App() {
               {activeTab === 'projects' && <ProjectBoard user={user} />}
               {activeTab === 'payments' && <PaymentTracker user={user} />}
               {activeTab === 'team' && <TeamManagement user={user} />}
-              {activeTab === 'crm' && <CRMLeadPipeline />}
+              {activeTab === 'crm' && <CRMLeadPipeline user={user} />}
             </motion.div>
           </AnimatePresence>
           </div>

@@ -150,3 +150,10 @@ export interface Sheet {
   name: string;
   created_at?: string;
 }
+
+export interface SheetMember {
+  id?: string;
+  sheet_id: string;
+  user_id: string;
+  created_at?: string;
+}
