@@ -4,6 +4,7 @@ import Papa from 'papaparse';
 import { User, Lead, Sheet } from "../types";
 import { getAccessToken } from "../services/googleAuth";
 import { dbService } from "../services/dbService";
+import { gmailService } from "../services/gmailService";
 import { motion } from "motion/react";
 import { Users, UserPlus, Mail, Calendar, FileSpreadsheet, Plus, Upload, Loader2, ArrowRight, CheckCircle2, RotateCcw, Pencil, X, CalendarCheck } from "lucide-react";
 import Modal from "./Modal";
@@ -284,38 +285,12 @@ export default function CRMLeadPipeline({ user }: { user: User }) {
     if (!confirm) return;
 
     try {
-      const token = await getAccessToken();
-      if (!token) throw new Error("Google not authenticated");
-
-      const emailLines = [
-        `To: ${lead.email}`,
-        `Subject: Connecting regarding ${lead.company}`,
-        "Content-Type: text/plain; charset=utf-8",
-        "",
-        `Hi ${lead.name},`,
-        "",
-        `I would love to connect to discuss how we can help ${lead.company} reach its goals.`,
-        "Let's schedule a brief call next week.",
-        "",
-        "Best regards,"
-      ];
-      const emailParams = btoa(emailLines.join("\r\n")).replace(/\+/g, '-').replace(/\//g, '_');
-
-      const res = await fetch("https://gmail.googleapis.com/upload/gmail/v1/users/me/messages/send", {
-        method: "POST",
-        headers: { 
-          Authorization: `Bearer ${token}`, 
-          "Content-Type": "application/json" 
-        },
-        body: JSON.stringify({ raw: emailParams })
-      });
-      
-      if (!res.ok) {
-        if (res.status === 401) {
-            throw new Error("Google session expired or invalid. Please log out, and log back in to refresh your Google authentication token.");
-        }
-        throw new Error(`Gmail API error: ${res.status} ${res.statusText}`);
-      }
+      showToast(`Sending email to ${lead.email}...`);
+      await gmailService.sendEmail(
+        lead.email,
+        `Connecting regarding ${lead.company || lead.name}`,
+        `<p>Hi ${lead.name},</p><p>I would love to connect to discuss how we can help ${lead.company || 'your business'} reach its goals.</p><p>Let's schedule a brief call next week.</p><p>Best regards,</p>`
+      );
 
       // Update lead status
       await dbService.update("leads", lead.id, { 
@@ -324,12 +299,12 @@ export default function CRMLeadPipeline({ user }: { user: User }) {
         last_touch_date: new Date().toISOString(),
         nextStep: "Follow-Up Ongoing"
       });
-    fetchSheets();
+      fetchSheets();
       fetchLeads();
-      console.log("Email sent successfully!");
+      showToast("Email sent successfully!");
     } catch (e: any) {
       console.error("Error sending email:", e);
-      console.log(e.message || "Failed to send email. Check API permissions.");
+      showToast(`Failed to send email: ${e.message || "Check API permissions."}`);
     }
   };
 

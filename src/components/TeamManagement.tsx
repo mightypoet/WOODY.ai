@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { User, UserRole } from '../types';
 import { dbService } from '../services/dbService';
+import { gmailService } from '../services/gmailService';
 import { notificationService } from '../services/notificationService';
 import { Users, Plus, Mail, Shield, Trash2, Loader2, UserPlus } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
@@ -43,20 +44,11 @@ export default function TeamManagement({ user }: { user: User }) {
         role: newMember.role
       });
 
-      const res = await fetch("/api/send-email", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          to: newMember.email,
-          subject: "Welcome to the Team!",
-          html: "<p>Hi " + newMember.name + ",</p><p>You have been added to the team as a " + newMember.role.replace('_', ' ') + ". Welcome aboard!</p>"
-        })
-      });
-
-      if (!res.ok) {
-        const errorData = await res.json().catch(() => ({}));
-        throw new Error(errorData.error || "Failed to send email notification");
-      }
+      await gmailService.sendEmail(
+        newMember.email,
+        "Welcome to the Team!",
+        `<p>Hi ${newMember.name},</p><p>You have been added to the team as a ${newMember.role.replace('_', ' ')}. Welcome aboard!</p>`
+      );
 
       setNewMember({ name: "", email: "", role: "team_member" });
       setIsModalOpen(false);

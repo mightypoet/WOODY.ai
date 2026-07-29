@@ -1,12 +1,19 @@
 import React, { useState } from "react";
 import { Lead } from "../../types";
-import { ChevronDown, ChevronUp } from "lucide-react";
+import { ChevronDown, ChevronUp, Mail } from "lucide-react";
+import { gmailService } from "../../services/gmailService";
 
 export default function LeadLog({ leads }: { leads: Lead[] }) {
   const [sortField, setSortField] = useState<keyof Lead>("name");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const [filter, setFilter] = useState("");
   const [expandedRows, setExpandedRows] = useState<Record<string, boolean>>({});
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  const showToast = (message: string) => {
+    setToastMessage(message);
+    setTimeout(() => setToastMessage(null), 3000);
+  };
 
   const sortedAndFiltered = leads
     .filter(l => 
@@ -53,6 +60,29 @@ export default function LeadLog({ leads }: { leads: Lead[] }) {
     return false;
   };
 
+  const handleSendEmail = async (lead: Lead) => {
+    if (!lead.email) {
+      showToast("Failed: No email address for this lead.");
+      return;
+    }
+    
+    const confirm = window.confirm(`Send an automated email to ${lead.name} (${lead.email})?`);
+    if (!confirm) return;
+
+    try {
+      showToast(`Sending email to ${lead.email}...`);
+      await gmailService.sendEmail(
+        lead.email,
+        `Connecting regarding ${lead.company || lead.name}`,
+        `<p>Hi ${lead.name},</p><p>I would love to connect to discuss how we can help ${lead.company || 'your business'} reach its goals.</p><p>Let's schedule a brief call next week.</p><p>Best regards,</p>`
+      );
+      showToast("Email sent successfully!");
+    } catch (e: any) {
+      console.error("Error sending email:", e);
+      showToast(`Failed to send email: ${e.message}`);
+    }
+  };
+
   return (
     <div className="flex-1 bg-zinc-950/20 backdrop-blur-sm rounded-2xl border border-white/5 p-4 flex flex-col min-h-0 overflow-hidden">
       <div className="mb-4">
@@ -78,6 +108,7 @@ export default function LeadLog({ leads }: { leads: Lead[] }) {
               <th className="p-3 text-zinc-400 font-medium cursor-pointer hover:text-white whitespace-nowrap" onClick={() => handleSort("instagram_link")}>Source</th>
               <th className="p-3 text-zinc-400 font-medium cursor-pointer hover:text-white whitespace-nowrap" onClick={() => handleSort("setter_name")}>Setter</th>
               <th className="p-3 text-zinc-400 font-medium cursor-pointer hover:text-white whitespace-nowrap" onClick={() => handleSort("closer_name")}>Closer</th>
+              <th className="p-3 text-zinc-400 font-medium">Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -106,10 +137,15 @@ export default function LeadLog({ leads }: { leads: Lead[] }) {
                     <td className="p-3 text-zinc-300 whitespace-nowrap truncate max-w-[120px]">{lead.instagram_link || "-"}</td>
                     <td className="p-3 text-zinc-300 whitespace-nowrap truncate max-w-[120px]">{lead.setter_name || "-"}</td>
                     <td className="p-3 text-zinc-300 whitespace-nowrap truncate max-w-[120px]">{lead.closer_name || "-"}</td>
+                    <td className="p-3">
+                      <button onClick={() => handleSendEmail(lead)} className="flex items-center gap-1.5 text-xs bg-zinc-800 hover:bg-zinc-700 text-white px-2 py-1.5 rounded transition-colors whitespace-nowrap" title="Send Auto Email via Gmail">
+                        <Mail size={12} /> Send Email
+                      </button>
+                    </td>
                   </tr>
                   {isExpanded && (
                     <tr className={`border-b border-white/5 bg-zinc-900/50 ${leak ? 'bg-red-950/10' : ''}`}>
-                      <td colSpan={10} className="p-4">
+                      <td colSpan={11} className="p-4">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pl-10">
                           <div>
                             <h4 className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-2">Notes & Conversations</h4>
@@ -162,6 +198,13 @@ export default function LeadLog({ leads }: { leads: Lead[] }) {
           </tbody>
         </table>
       </div>
+      {/* Toast Notification */}
+      {toastMessage && (
+        <div className={`fixed bottom-6 right-6 px-6 py-3 rounded-lg shadow-xl border flex items-center gap-3 animate-in slide-in-from-bottom-5 z-[9999] ${toastMessage.includes("Failed") ? "bg-red-900/90 border-red-800 text-white" : "bg-zinc-800 text-white border-zinc-700"}`}>
+          <div className={`w-2 h-2 rounded-full ${toastMessage.includes("Failed") ? "bg-red-400" : "bg-green-500"}`}></div>
+          {toastMessage}
+        </div>
+      )}
     </div>
   );
 }

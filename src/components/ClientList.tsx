@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { User, Client } from "../types";
 import { dbService } from "../services/dbService";
+import { gmailService } from "../services/gmailService";
 import {
   Building2,
   Plus,
@@ -11,6 +12,7 @@ import {
   MoreVertical,
   Trash2,
   X,
+  Send
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { format } from "date-fns";
@@ -25,6 +27,7 @@ export default function ClientList({ user }: { user: User }) {
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [newClient, setNewClient] = useState({
     name: "",
     brand: "",
@@ -51,6 +54,35 @@ export default function ClientList({ user }: { user: User }) {
     });
     return () => unsub();
   }, []);
+
+  const showToast = (msg: string) => {
+    setToastMessage(msg);
+    setTimeout(() => setToastMessage(null), 3000);
+  };
+
+  const handleSendEmail = async (client: Client, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!client.contact) {
+      showToast("Failed: No email address for this client.");
+      return;
+    }
+    
+    const confirm = window.confirm(`Send an automated update email to ${client.name} (${client.contact})?`);
+    if (!confirm) return;
+
+    try {
+      showToast(`Sending email to ${client.contact}...`);
+      await gmailService.sendEmail(
+        client.contact,
+        `Project Update: ${client.brand || client.name}`,
+        `<p>Hi ${client.name},</p><p>We wanted to share a quick update regarding your account at ${client.brand || 'your company'}. Please let us know if you'd like to review the latest reports.</p><p>Best regards,</p>`
+      );
+      showToast("Email sent successfully!");
+    } catch (e: any) {
+      console.error("Error sending email:", e);
+      showToast(`Failed to send email: ${e.message}`);
+    }
+  };
 
   const handleAddClient = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -239,9 +271,14 @@ export default function ClientList({ user }: { user: User }) {
                       </div>
                     )}
                   </div>
-                  <button className="text-xs text-zinc-500 hover:text-white flex items-center gap-1 transition-colors shrink-0 ml-2">
-                    View <ExternalLink size={12} />
-                  </button>
+                  <div className="flex items-center gap-3 ml-2 shrink-0">
+                    <button onClick={(e) => handleSendEmail(client, e)} className="text-xs text-zinc-400 hover:text-white flex items-center gap-1 transition-colors bg-zinc-800 hover:bg-zinc-700 px-2 py-1 rounded">
+                      <Send size={10} /> Email
+                    </button>
+                    <button className="text-xs text-zinc-500 hover:text-white flex items-center gap-1 transition-colors">
+                      View <ExternalLink size={12} />
+                    </button>
+                  </div>
                 </div>
               </motion.div>
             ))}
