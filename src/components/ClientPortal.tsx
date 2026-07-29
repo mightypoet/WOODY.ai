@@ -260,7 +260,7 @@ export default function ClientPortal({
   const prevMonth = () => setCurrentDate(subMonths(currentDate, 1));
 
   return (
-    <div className="h-full flex flex-col p-8 space-y-8 overflow-y-auto">
+    <div className="h-full flex flex-col p-4 sm:p-8 space-y-6 sm:space-y-8 overflow-y-auto">
       <header className="flex items-center gap-4 shrink-0">
         <button
           onClick={onBack}

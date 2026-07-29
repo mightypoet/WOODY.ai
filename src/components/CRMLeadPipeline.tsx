@@ -748,7 +748,7 @@ export default function CRMLeadPipeline({ user }: { user: User }) {
 
   const activeLeads = activeSheetId ? leads.filter(l => l.sheet_id === activeSheetId) : leads.filter(l => !l.sheet_id);
   return (
-    <div className="h-full flex flex-col bg-zinc-950 p-6">
+    <div className="h-full flex flex-col bg-zinc-950 p-4 sm:p-6">
       <header className="flex items-center justify-between shrink-0 mb-6">
         <div className="flex items-center gap-6">
           <div>

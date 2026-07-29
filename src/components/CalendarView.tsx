@@ -105,7 +105,7 @@ export default function CalendarView() {
   const selectedDateTasks = selectedDateStr ? tasksByDay.get(selectedDateStr) || [] : [];
 
   return (
-    <div className="h-full flex flex-col p-8 space-y-8 overflow-y-auto">
+    <div className="h-full flex flex-col p-4 sm:p-8 space-y-6 sm:space-y-8 overflow-y-auto">
       <header className="flex items-center justify-between shrink-0">
         <div className="space-y-1">
           <h2 className="text-3xl font-bold tracking-tight">Calendar</h2>
@@ -126,16 +126,17 @@ export default function CalendarView() {
         </div>
       </header>
 
-      <div className="flex-1 flex gap-8 min-h-0">
-        <div className="flex-1 bg-zinc-900 border border-zinc-800 rounded-3xl p-8 flex flex-col min-h-0">
-          <div className="grid grid-cols-7 gap-4 mb-4">
+      <div className="flex-1 flex flex-col xl:flex-row gap-8 min-h-0 overflow-y-auto xl:overflow-hidden pb-6 xl:pb-0">
+        <div className="flex-1 bg-zinc-900 border border-zinc-800 rounded-3xl p-4 sm:p-8 flex flex-col min-h-0">
+          <div className="grid grid-cols-7 gap-2 sm:gap-4 mb-4">
             {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => (
-              <div key={day} className="text-center font-bold text-xs text-zinc-500 uppercase tracking-widest">
-                {day}
+              <div key={day} className="text-center font-bold text-[10px] sm:text-xs text-zinc-500 uppercase tracking-widest">
+                <span className="sm:hidden">{day.charAt(0)}</span>
+                <span className="hidden sm:inline">{day}</span>
               </div>
             ))}
           </div>
-          <div className="grid grid-cols-7 gap-4 flex-1">
+          <div className="grid grid-cols-7 gap-2 sm:gap-4 flex-1">
             {days.map((day, i) => {
               const isCurrentMonth = isSameMonth(day, monthStart);
               const isTodayDate = isToday(day);
@@ -190,7 +191,7 @@ export default function CalendarView() {
           </div>
         </div>
 
-        <div className="w-80 flex flex-col gap-4 min-h-0 overflow-y-auto">
+        <div className="w-full xl:w-80 flex flex-col gap-4 min-h-0 xl:overflow-y-auto">
           {selectedDate ? (
             <>
               <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6">

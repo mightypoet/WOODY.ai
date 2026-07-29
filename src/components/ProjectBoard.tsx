@@ -120,7 +120,7 @@ export default function ProjectBoard({ user }: { user: User }) {
   };
 
   return (
-    <div className="h-full flex flex-col p-8 space-y-8">
+    <div className="h-full flex flex-col p-4 sm:p-8 space-y-6 sm:space-y-8">
       <header className="flex items-center justify-between">
         <div className="space-y-1">
           <h2 className="text-3xl font-bold tracking-tight">Projects</h2>

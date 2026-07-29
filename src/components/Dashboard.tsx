@@ -62,7 +62,7 @@ export default function Dashboard({ user }: { user: User }) {
   ];
 
   return (
-    <div className="h-full overflow-y-auto p-8 space-y-8">
+    <div className="h-full overflow-y-auto p-4 sm:p-8 space-y-6 sm:space-y-8">
       <header className="flex items-start justify-between">
         <div className="space-y-1">
           <h2 className="text-3xl font-bold tracking-tight">Dashboard</h2>
