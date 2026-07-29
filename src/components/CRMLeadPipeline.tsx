@@ -647,7 +647,7 @@ export default function CRMLeadPipeline({ user }: { user: User }) {
     const columnLeads = activeLeads.filter(l => l.status === status);
     
     return (
-      <div className="flex-1 min-w-[280px] bg-zinc-900/50 rounded-2xl p-4 border border-white/5 flex flex-col h-full">
+      <div className="flex-1 w-full md:w-auto md:min-w-[280px] bg-zinc-900/50 rounded-2xl p-4 border border-white/5 flex flex-col min-h-[400px] md:h-full">
         <div className="flex items-center justify-between mb-4">
           <h3 className="font-semibold text-white tracking-wide">{status}</h3>
           <span className="bg-zinc-800 text-xs px-2 py-1 rounded-full text-zinc-400">{columnLeads.length}</span>
@@ -857,7 +857,7 @@ export default function CRMLeadPipeline({ user }: { user: User }) {
           <Loader2 className="animate-spin text-zinc-500 h-8 w-8" />
         </div>
       ) : viewMode === "kanban" ? (
-        <div className="flex-1 overflow-x-auto custom-scrollbar min-h-0 bg-zinc-950/20 backdrop-blur-sm rounded-2xl border border-white/5 p-4 flex gap-4">
+        <div className="flex-1 overflow-y-auto md:overflow-x-auto custom-scrollbar min-h-0 bg-zinc-950/20 backdrop-blur-sm rounded-2xl border border-white/5 p-4 flex flex-col md:flex-row gap-4">
           {renderPipelineColumn("New")}
           {renderPipelineColumn("Proposal")}
           {renderPipelineColumn("Deposit")}

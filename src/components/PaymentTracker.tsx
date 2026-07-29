@@ -117,8 +117,8 @@ export default function PaymentTracker({ user }: { user: User }) {
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto">
-          <table className="w-full text-left border-collapse">
+        <div className="flex-1 overflow-y-auto overflow-x-auto w-full">
+          <table className="w-full text-left border-collapse min-w-[800px]">
             <thead className="sticky top-0 bg-zinc-900 z-10">
               <tr className="border-b border-zinc-800">
                 <th className="p-4 text-[10px] text-zinc-500 uppercase font-mono tracking-widest">Client</th>

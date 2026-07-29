@@ -165,9 +165,9 @@ export default function ProjectBoard({ user }: { user: User }) {
           </button>
         </div>
       ) : (
-        <div className="flex-1 flex gap-6 overflow-x-auto pb-4">
+        <div className="flex-1 flex flex-col md:flex-row gap-6 overflow-y-auto md:overflow-x-auto pb-4">
           {columns.map((col) => (
-            <div key={col.id} className="flex-1 min-w-[320px] bg-zinc-900/50 border border-zinc-800 rounded-2xl flex flex-col mt-2">
+            <div key={col.id} className="flex-1 w-full md:w-auto md:min-w-[320px] bg-zinc-900/50 border border-zinc-800 rounded-2xl flex flex-col mt-2 min-h-[400px] md:h-auto">
               <div className="p-4 border-b border-zinc-800 flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <col.icon size={16} className={col.color} />

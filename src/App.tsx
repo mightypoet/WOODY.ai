@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { dbService, testConnection } from './services/dbService';
 import { googleSignIn, initAuth, logout as googleLogout } from './services/googleAuth';
 import { User, UserRole } from './types';
-import { Layout, MessageSquare, LayoutDashboard, Users, Briefcase, CreditCard, LogOut, Loader2, Send, Building2, AlertCircle, CheckCircle2, Calendar } from 'lucide-react';
+import { Layout, MessageSquare, LayoutDashboard, Users, Briefcase, CreditCard, LogOut, Loader2, Send, Building2, AlertCircle, CheckCircle2, Calendar, Menu, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import ErrorBoundary from './components/ErrorBoundary';
 import ChatInterface from './components/ChatInterface';
@@ -21,6 +21,7 @@ export default function App() {
   const [dbError, setDbError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'chat' | 'dashboard' | 'calendar' | 'clients' | 'projects' | 'payments' | 'team' | 'crm'>('chat');
   const [supabaseConfigError, setSupabaseConfigError] = useState<boolean>(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   useEffect(() => {
     // If we're inside the popup, let Supabase process hash then close
@@ -203,22 +204,30 @@ export default function App() {
         </div>
 
         {/* Sidebar */}
-        <aside className="w-64 border-r border-white/5 bg-zinc-950/50 backdrop-blur-3xl flex flex-col p-4 relative z-10">
-          <div className="mb-10 px-2 mt-4 flex items-center gap-3">
-            <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center shadow-[0_0_15px_rgba(255,255,255,0.2)]">
-              <span className="font-bold text-black tracking-tighter">W</span>
+        <aside className={`fixed inset-y-0 left-0 z-50 w-64 border-r border-white/5 bg-zinc-950/95 md:bg-zinc-950/50 backdrop-blur-3xl flex flex-col p-4 transform transition-transform duration-300 ease-in-out md:relative md:translate-x-0 ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+          <div className="mb-10 px-2 mt-4 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center shadow-[0_0_15px_rgba(255,255,255,0.2)]">
+                <span className="font-bold text-black tracking-tighter">W</span>
+              </div>
+              <div>
+                <h1 className="text-xl font-bold tracking-tight">WOODY</h1>
+                <p className="text-[10px] text-zinc-400 uppercase tracking-widest font-mono">Reelywood Alpha</p>
+              </div>
             </div>
-            <div>
-              <h1 className="text-xl font-bold tracking-tight">WOODY</h1>
-              <p className="text-[10px] text-zinc-400 uppercase tracking-widest font-mono">Reelywood Alpha</p>
-            </div>
+            <button className="md:hidden text-zinc-400 hover:text-white" onClick={() => setIsMobileMenuOpen(false)}>
+              <X size={24} />
+            </button>
           </div>
 
           <nav className="flex-1 space-y-1">
             {tabs.map((tab) => (
               <button
                 key={tab.id}
-                onClick={() => setActiveTab(tab.id as any)}
+                onClick={() => {
+                  setActiveTab(tab.id as any);
+                  setIsMobileMenuOpen(false);
+                }}
                 className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-300 relative group ${
                   activeTab === tab.id 
                     ? 'text-white bg-white/5 shadow-inner border border-white/10' 
@@ -255,8 +264,30 @@ export default function App() {
           </div>
         </aside>
 
+        {/* Mobile menu overlay */}
+        {isMobileMenuOpen && (
+          <div 
+            className="fixed inset-0 z-40 bg-black/50 md:hidden backdrop-blur-sm"
+            onClick={() => setIsMobileMenuOpen(false)}
+          />
+        )}
+
         {/* Main Content */}
-        <main className="flex-1 relative z-10 overflow-hidden bg-zinc-950/80 backdrop-blur-xl rounded-tl-3xl border-t border-l border-white/5 shadow-2xl flex flex-col">
+        <main className="flex-1 relative z-10 overflow-hidden bg-zinc-950/80 backdrop-blur-xl md:rounded-tl-3xl border-t border-l border-white/5 shadow-2xl flex flex-col">
+          
+          {/* Mobile Topbar */}
+          <div className="md:hidden flex items-center justify-between p-4 border-b border-white/5 bg-zinc-950/50 backdrop-blur-md z-20">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center shadow-[0_0_15px_rgba(255,255,255,0.2)]">
+                <span className="font-bold text-black tracking-tighter">W</span>
+              </div>
+              <h1 className="text-lg font-bold tracking-tight">WOODY</h1>
+            </div>
+            <button onClick={() => setIsMobileMenuOpen(true)} className="text-zinc-400 hover:text-white p-2">
+              <Menu size={24} />
+            </button>
+          </div>
+
           {dbError && (
             <div className="bg-red-500/10 border-b border-red-500/20 text-red-400 p-3 px-6 text-sm flex items-center justify-between shrink-0">
               <div className="flex items-center gap-2 font-medium">

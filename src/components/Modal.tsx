@@ -25,9 +25,9 @@ export default function Modal({ isOpen, onClose, title, children }: ModalProps) 
             initial={{ opacity: 0, scale: 0.95, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 20 }}
-            className="relative w-full max-w-lg bg-zinc-900 border border-zinc-800 rounded-2xl shadow-2xl overflow-hidden"
+            className="relative w-full max-w-[95vw] sm:max-w-lg max-h-[90vh] flex flex-col bg-zinc-900 border border-zinc-800 rounded-2xl shadow-2xl overflow-hidden"
           >
-            <div className="flex items-center justify-between p-6 border-b border-zinc-800">
+            <div className="flex items-center justify-between p-4 sm:p-6 border-b border-zinc-800 shrink-0">
               <h3 className="text-xl font-bold tracking-tight">{title}</h3>
               <button
                 onClick={onClose}
@@ -36,7 +36,7 @@ export default function Modal({ isOpen, onClose, title, children }: ModalProps) 
                 <X size={20} />
               </button>
             </div>
-            <div className="p-6">
+            <div className="p-4 sm:p-6 overflow-y-auto custom-scrollbar">
               {children}
             </div>
           </motion.div>
