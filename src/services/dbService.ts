@@ -41,6 +41,17 @@ const apiRequest = async (method: string, path: string, body?: any) => {
   }
 };
 
+
+const mapOutput = (data) => {
+  if (!data) return data;
+  if (Array.isArray(data)) {
+    return data.map(item => mapOutput(item));
+  }
+  if (data.created_at && !data.createdAt) {
+    data.createdAt = data.created_at;
+  }
+  return data;
+};
 export const dbService = {
   async create(table: string, data: any) {
     if (table !== 'leads' && table !== 'users' && table !== 'sheets' && table !== 'sheet_members' && table !== 'clients' && table !== 'projects' && table !== 'tasks' && table !== 'payments' && table !== 'meetings') {
@@ -64,6 +75,10 @@ export const dbService = {
       }
       
       let finalPayload = { ...payload };
+      if (finalPayload.createdAt) {
+        finalPayload.created_at = finalPayload.createdAt;
+        delete finalPayload.createdAt;
+      }
       if (table === 'leads') { 
         delete finalPayload.calendar_synced; 
         delete finalPayload.lastContactDate; 
@@ -114,6 +129,10 @@ export const dbService = {
     
     try {
       let finalPayload = { ...data };
+      if (finalPayload.createdAt) {
+        finalPayload.created_at = finalPayload.createdAt;
+        delete finalPayload.createdAt;
+      }
       if (table === 'leads') { 
         delete finalPayload.calendar_synced; 
         delete finalPayload.lastContactDate; 
@@ -164,7 +183,7 @@ export const dbService = {
         if (error.code === 'PGRST116') return null; // Not found
         throw error;
       }
-      return data;
+      return mapOutput(data);
     } catch (error) {
       console.error(`Get error in ${table}/${id}:`, error);
       return null;
@@ -213,7 +232,7 @@ export const dbService = {
       
       const { data, error } = await query;
       if (error) throw error;
-      return data || [];
+      return mapOutput(data || []);
     } catch (error) {
       console.error(`List error in ${table}:`, error);
       return [];

@@ -176,8 +176,7 @@ export default function ChatInterface({ user }: { user: User }) {
               company: action.payload.company || action.payload.brand || "",
               contact_number: action.payload.phone || "",
               total_deal_value: action.payload.estimated_value || 0,
-              status: action.payload.stage || "New",
-              createdAt: now,
+              status: action.payload.stage || "New"
             });
             results.push(
               `Created lead: ${action.payload.name || action.payload.client_name}`,
