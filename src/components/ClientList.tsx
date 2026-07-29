@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { User, Client } from "../types";
 import { dbService } from "../services/dbService";
-import { gmailService } from "../services/gmailService";
+import { gmailService, buildHtmlEmail } from "../services/gmailService";
 import {
   Building2,
   Plus,
@@ -75,7 +75,14 @@ export default function ClientList({ user }: { user: User }) {
       await gmailService.sendEmail(
         client.contact,
         `Project Update: ${client.brand || client.name}`,
-        `<p>Hi ${client.name},</p><p>We wanted to share a quick update regarding your account at ${client.brand || 'your company'}. Please let us know if you'd like to review the latest reports.</p><p>Best regards,</p>`
+        buildHtmlEmail({
+          recipientName: client.name,
+          headline: `Project Update: ${client.brand || client.name}`,
+          messageBody: `We wanted to share a quick update regarding your account at ${client.brand || 'your company'}. Please let us know if you'd like to review the latest reports.`,
+          ctaText: "View Dashboard",
+          ctaUrl: "https://your-app-url.com/client-portal",
+          senderName: "Your Account Manager"
+        })
       );
       showToast("Email sent successfully!");
     } catch (e: any) {

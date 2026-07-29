@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { User, UserRole } from '../types';
 import { dbService } from '../services/dbService';
-import { gmailService } from '../services/gmailService';
+import { gmailService, buildHtmlEmail } from '../services/gmailService';
 import { notificationService } from '../services/notificationService';
 import { Users, Plus, Mail, Shield, Trash2, Loader2, UserPlus } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
@@ -47,7 +47,14 @@ export default function TeamManagement({ user }: { user: User }) {
       await gmailService.sendEmail(
         newMember.email,
         "Welcome to the Team!",
-        `<p>Hi ${newMember.name},</p><p>You have been added to the team as a ${newMember.role.replace('_', ' ')}. Welcome aboard!</p>`
+        buildHtmlEmail({
+          recipientName: newMember.name,
+          headline: "Welcome to the Team!",
+          messageBody: `You have been added to the team as a ${newMember.role.replace('_', ' ')}. We're excited to have you on board!`,
+          ctaText: "Log In Now",
+          ctaUrl: "https://your-app-url.com",
+          senderName: "Admin"
+        })
       );
 
       setNewMember({ name: "", email: "", role: "team_member" });

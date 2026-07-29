@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { Lead } from "../../types";
 import { ChevronDown, ChevronUp, Mail } from "lucide-react";
-import { gmailService } from "../../services/gmailService";
+import { gmailService, buildHtmlEmail } from "../../services/gmailService";
 
 export default function LeadLog({ leads }: { leads: Lead[] }) {
   const [sortField, setSortField] = useState<keyof Lead>("name");
@@ -74,7 +74,14 @@ export default function LeadLog({ leads }: { leads: Lead[] }) {
       await gmailService.sendEmail(
         lead.email,
         `Connecting regarding ${lead.company || lead.name}`,
-        `<p>Hi ${lead.name},</p><p>I would love to connect to discuss how we can help ${lead.company || 'your business'} reach its goals.</p><p>Let's schedule a brief call next week.</p><p>Best regards,</p>`
+        buildHtmlEmail({
+          recipientName: lead.name,
+          headline: `Connecting regarding ${lead.company || lead.name}`,
+          messageBody: `I would love to connect to discuss how we can help ${lead.company || 'your business'} reach its goals.<br><br>Let's schedule a brief call next week.`,
+          ctaText: "Schedule Call",
+          ctaUrl: "https://calendly.com",
+          senderName: "Your Account Executive"
+        })
       );
       showToast("Email sent successfully!");
     } catch (e: any) {

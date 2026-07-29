@@ -4,7 +4,7 @@ import Papa from 'papaparse';
 import { User, Lead, Sheet } from "../types";
 import { getAccessToken } from "../services/googleAuth";
 import { dbService } from "../services/dbService";
-import { gmailService } from "../services/gmailService";
+import { gmailService, buildHtmlEmail } from "../services/gmailService";
 import { motion } from "motion/react";
 import { Users, UserPlus, Mail, Calendar, FileSpreadsheet, Plus, Upload, Loader2, ArrowRight, CheckCircle2, RotateCcw, Pencil, X, CalendarCheck } from "lucide-react";
 import Modal from "./Modal";
@@ -289,7 +289,14 @@ export default function CRMLeadPipeline({ user }: { user: User }) {
       await gmailService.sendEmail(
         lead.email,
         `Connecting regarding ${lead.company || lead.name}`,
-        `<p>Hi ${lead.name},</p><p>I would love to connect to discuss how we can help ${lead.company || 'your business'} reach its goals.</p><p>Let's schedule a brief call next week.</p><p>Best regards,</p>`
+        buildHtmlEmail({
+          recipientName: lead.name,
+          headline: `Connecting regarding ${lead.company || lead.name}`,
+          messageBody: `I would love to connect to discuss how we can help ${lead.company || 'your business'} reach its goals.<br><br>Let's schedule a brief call next week.`,
+          ctaText: "Schedule Call",
+          ctaUrl: "https://calendly.com",
+          senderName: "Your Account Executive"
+        })
       );
 
       // Update lead status
