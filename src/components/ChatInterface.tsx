@@ -740,7 +740,7 @@ export default function ChatInterface({ user }: { user: User }) {
       } catch (e) {
         console.error("Action execution failed:", e);
         results.push(
-          `Failed to execute ${action.type}: ${e instanceof Error ? e.message : "Unknown error"}`,
+          `Failed to execute ${action.type}: ${e instanceof Error ? (e.message.startsWith('{') ? JSON.parse(e.message).error : e.message) : "Unknown error"}`,
         );
       }
     }

@@ -43,7 +43,7 @@ const apiRequest = async (method: string, path: string, body?: any) => {
 
 export const dbService = {
   async create(table: string, data: any) {
-    if (table !== 'leads' && table !== 'users' && table !== 'sheets' && table !== 'sheet_members') {
+    if (table !== 'leads' && table !== 'users' && table !== 'sheets' && table !== 'sheet_members' && table !== 'clients' && table !== 'projects' && table !== 'tasks' && table !== 'payments' && table !== 'meetings') {
       try {
         const payload = { ...data };
         if (!payload.createdAt) {
@@ -85,9 +85,9 @@ export const dbService = {
         
       if (error) {
         if (error.code === '42501') {
-          throw new Error('Supabase RLS Error: You do not have permission to insert rows. Please check your Row Level Security policies in Supabase.');
+          throw new Error(JSON.stringify({ status: 403, error: 'Supabase RLS Error: Permission denied' }));
         }
-        throw error;
+        throw new Error(JSON.stringify({ status: 500, error: error.message || 'Database insertion failed' }));
       }
       
       return insertedData.id;
@@ -102,7 +102,7 @@ export const dbService = {
   },
   
   async update(table: string, id: string, data: any) {
-    if (table !== 'leads' && table !== 'users' && table !== 'sheets' && table !== 'sheet_members') {
+    if (table !== 'leads' && table !== 'users' && table !== 'sheets' && table !== 'sheet_members' && table !== 'clients' && table !== 'projects' && table !== 'tasks' && table !== 'payments' && table !== 'meetings') {
       try {
         await apiRequest('PUT', `/${table}/${id}`, data);
         return;
@@ -145,7 +145,7 @@ export const dbService = {
   },
   
   async get(table: string, id: string) {
-    if (table !== 'leads' && table !== 'users' && table !== 'sheets' && table !== 'sheet_members') {
+    if (table !== 'leads' && table !== 'users' && table !== 'sheets' && table !== 'sheet_members' && table !== 'clients' && table !== 'projects' && table !== 'tasks' && table !== 'payments' && table !== 'meetings') {
       try {
         return await apiRequest('GET', `/${table}/${id}`);
       } catch (error) {
@@ -172,7 +172,7 @@ export const dbService = {
   },
   
   async list(table: string, filters?: { field: string, operator: string, value: any }[]) {
-    if (table !== 'leads' && table !== 'users' && table !== 'sheets' && table !== 'sheet_members') {
+    if (table !== 'leads' && table !== 'users' && table !== 'sheets' && table !== 'sheet_members' && table !== 'clients' && table !== 'projects' && table !== 'tasks' && table !== 'payments' && table !== 'meetings') {
       try {
         let result = await apiRequest('GET', `/${table}`);
         if (filters && result.length > 0) {
@@ -221,7 +221,7 @@ export const dbService = {
   },
   
   async delete(table: string, id: string) {
-    if (table !== 'leads' && table !== 'users' && table !== 'sheets' && table !== 'sheet_members') {
+    if (table !== 'leads' && table !== 'users' && table !== 'sheets' && table !== 'sheet_members' && table !== 'clients' && table !== 'projects' && table !== 'tasks' && table !== 'payments' && table !== 'meetings') {
       try {
         await apiRequest('DELETE', `/${table}/${id}`);
         return;
@@ -252,7 +252,7 @@ export const dbService = {
     
     fetchAndCallback();
     
-    if (table !== 'leads' && table !== 'users' && table !== 'sheets' && table !== 'sheet_members') {
+    if (table !== 'leads' && table !== 'users' && table !== 'sheets' && table !== 'sheet_members' && table !== 'clients' && table !== 'projects' && table !== 'tasks' && table !== 'payments' && table !== 'meetings') {
       const interval = setInterval(fetchAndCallback, 5000);
       return () => clearInterval(interval);
     }

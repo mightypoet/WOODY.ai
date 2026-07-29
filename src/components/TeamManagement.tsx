@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { User, UserRole } from '../types';
 import { dbService } from '../services/dbService';
+import { supabase } from '../utils/supabase';
 import { gmailService, buildHtmlEmail } from '../services/gmailService';
 import { notificationService } from '../services/notificationService';
 import { Users, Plus, Mail, Shield, Trash2, Loader2, UserPlus } from 'lucide-react';
@@ -25,11 +26,35 @@ export default function TeamManagement({ user }: { user: User }) {
   };
 
   useEffect(() => {
-    const unsub = dbService.subscribe('users', (data) => {
-      setMembers(data);
-      setLoading(false);
-    });
-    return () => unsub();
+    let isMounted = true;
+    
+    const fetchMembers = async () => {
+      try {
+        const data = await dbService.list('users');
+        if (isMounted) {
+          // Deduplicate by id just in case
+          const uniqueMembers = Array.from(new Map(data.map(m => [m.id, m])).values()) as User[];
+          setMembers(uniqueMembers);
+          setLoading(false);
+        }
+      } catch (e) {
+        console.error("Failed to fetch members:", e);
+        if (isMounted) setLoading(false);
+      }
+    };
+
+    fetchMembers();
+
+    const channel = supabase.channel('public:users')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'users' }, (payload) => {
+        fetchMembers();
+      })
+      .subscribe();
+
+    return () => {
+      isMounted = false;
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   const handleAddMember = async (e: React.FormEvent) => {
@@ -73,8 +98,20 @@ export default function TeamManagement({ user }: { user: User }) {
       alert("You cannot delete yourself.");
       return;
     }
-    if (confirm('Are you sure you want to remove this team member?')) {
-      await dbService.delete('users', id);
+    if (window.confirm('Are you sure you want to remove this team member?')) {
+      // Optimistic update
+      const prevMembers = [...members];
+      setMembers(members.filter(m => m.id !== id && m.email !== id));
+      
+      try {
+        await dbService.delete('users', id);
+        // Supabase Realtime will fetch the updated list automatically
+      } catch (error: any) {
+        console.error(error);
+        showToast("Failed to delete member");
+        // Revert on failure
+        setMembers(prevMembers);
+      }
     }
   };
 
@@ -108,7 +145,7 @@ export default function TeamManagement({ user }: { user: User }) {
             <AnimatePresence mode="popLayout">
               {members.map((member, i) => (
                 <motion.div
-                  key={member.id || member.email}
+                  key={member.id}
                   layout
                   initial={{ opacity: 0, scale: 0.9 }}
                   animate={{ opacity: 1, scale: 1 }}
