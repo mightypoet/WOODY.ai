@@ -37,12 +37,10 @@ export default function TeamManagement({ user }: { user: User }) {
 
     setIsSubmitting(true);
     try {
-      await dbService.set("users", newMember.email, {
-        id: newMember.email,
+      await dbService.create("users", {
         name: newMember.name,
         email: newMember.email,
-        role: newMember.role,
-        createdAt: new Date().toISOString()
+        role: newMember.role
       });
 
       const res = await fetch("/api/send-email", {

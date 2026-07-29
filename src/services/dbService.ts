@@ -73,7 +73,6 @@ export const dbService = {
         delete finalPayload.id;
       }
       if (table === 'users') {
-        delete finalPayload.email;
         delete finalPayload.createdAt;
         delete finalPayload.created_at;
       }
@@ -124,7 +123,6 @@ export const dbService = {
         delete finalPayload.id;
       }
       if (table === 'users') {
-        delete finalPayload.email;
         delete finalPayload.createdAt;
         delete finalPayload.created_at;
       }
