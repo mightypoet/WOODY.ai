@@ -4,6 +4,7 @@ import Papa from 'papaparse';
 import { User, Lead, Sheet } from "../types";
 import { getAccessToken } from "../services/googleAuth";
 import { dbService } from "../services/dbService";
+import { calendarService } from "../services/calendarService";
 import { gmailService, buildHtmlEmail } from "../services/gmailService";
 import { motion } from "motion/react";
 import { Users, UserPlus, Mail, Calendar, FileSpreadsheet, Plus, Upload, Loader2, ArrowRight, CheckCircle2, RotateCcw, Pencil, X, CalendarCheck } from "lucide-react";
@@ -39,6 +40,15 @@ export default function CRMLeadPipeline({ user }: { user: User }) {
   const [sheetMembers, setSheetMembers] = useState<string[]>([]);
   const [isUpdatingMembers, setIsUpdatingMembers] = useState(false);
   const [newSheetName, setNewSheetName] = useState("");
+
+  const [leadToSchedule, setLeadToSchedule] = useState<Lead | null>(null);
+  const [isSchedulingCall, setIsSchedulingCall] = useState(false);
+  const [scheduleForm, setScheduleForm] = useState({
+    date: "",
+    time: "10:00",
+    duration: 30,
+    addGoogleMeetLink: true,
+  });
 
   const handleCreateLeadClick = () => {
     setEditForm({ status: "New", sheet_id: activeSheetId || undefined });
@@ -315,56 +325,77 @@ export default function CRMLeadPipeline({ user }: { user: User }) {
     }
   };
 
-  const handleScheduleCall = async (lead: Lead) => {
-    const confirm = window.confirm(`Schedule a 30-min discovery call tomorrow with ${lead.name}?`);
-    if (!confirm) return;
+  const handleScheduleCall = (lead: Lead) => {
+    setLeadToSchedule(lead);
+    
+    // Default to tomorrow
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const dateStr = tomorrow.toISOString().split('T')[0];
+    
+    setScheduleForm({
+      date: dateStr,
+      time: "10:00",
+      duration: 30,
+      addGoogleMeetLink: true,
+    });
+    setIsSchedulingCall(true);
+  };
+
+  const submitScheduleCall = async () => {
+    if (!leadToSchedule || !scheduleForm.date || !scheduleForm.time) return;
 
     try {
-      const token = await getAccessToken();
-      if (!token) throw new Error("Google not authenticated");
-      
-      const tomorrow = new Date();
-      tomorrow.setDate(tomorrow.getDate() + 1);
-      tomorrow.setHours(tomorrow.getHours() + 1);
+      const startDateTime = new Date(`${scheduleForm.date}T${scheduleForm.time}:00`).toISOString();
+      const endTime = new Date(`${scheduleForm.date}T${scheduleForm.time}:00`);
+      endTime.setMinutes(endTime.getMinutes() + scheduleForm.duration);
+      const endDateTime = endTime.toISOString();
 
-      const endTime = new Date(tomorrow);
-      endTime.setMinutes(endTime.getMinutes() + 30);
-
-      const event = {
-        summary: `Discovery Call: ${lead.company} / Us`,
-        description: `Introductory call with ${lead.name}`,
-        attendees: [{ email: lead.email }],
-        start: { dateTime: tomorrow.toISOString() },
-        end: { dateTime: endTime.toISOString() }
-      };
-
-      const res = await fetch("https://www.googleapis.com/calendar/v3/calendars/primary/events", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify(event)
+      const eventRes = await calendarService.createEvent({
+        summary: `Discovery Call: ${leadToSchedule.company || leadToSchedule.name} / Us`,
+        description: `Introductory call with ${leadToSchedule.name}`,
+        attendees: [{ email: leadToSchedule.email }],
+        startDateTime,
+        endDateTime,
+        addGoogleMeetLink: scheduleForm.addGoogleMeetLink
       });
+
+      const meetingLink = eventRes.hangoutLink || "";
       
-      if (!res.ok) {
-        if (res.status === 401) {
-            throw new Error("Google session expired or invalid. Please log out, and log back in to refresh your Google authentication token.");
-        }
-        throw new Error(`Calendar API error: ${res.status} ${res.statusText}`);
-      }
-      
-      await dbService.update("leads", lead.id, { 
-        status: "Meeting Follow-Up",
+      const emailBody = `
+        <p>Your discovery call is scheduled for <strong>${new Date(startDateTime).toLocaleString()}</strong>.</p>
+        <p>Duration: ${scheduleForm.duration} minutes</p>
+        ${meetingLink ? `<p>Meeting Link: <a href="${meetingLink}">${meetingLink}</a></p>` : ''}
+        <p>Looking forward to speaking with you!</p>
+      `;
+
+      const htmlEmail = buildHtmlEmail({
+        recipientName: leadToSchedule.name,
+        headline: "Discovery Call Scheduled",
+        messageBody: emailBody,
+        ctaText: meetingLink ? "Join Meeting" : "View Details",
+        ctaUrl: meetingLink || "#",
+        senderName: "WOODY Team"
+      });
+
+      await gmailService.sendEmail(leadToSchedule.email, "Discovery Call Scheduled", htmlEmail);
+
+      // Do not change lead state so it doesn't disappear from its current column, 
+      // just update meeting_status to Scheduled.
+      await dbService.update("leads", leadToSchedule.id, { 
+        meeting_status: "Scheduled",
         nextStep: "Discovery Call Scheduled",
         last_touch_date: new Date().toISOString()
       });
-    fetchSheets();
+
+      fetchSheets();
       fetchLeads();
+      setIsSchedulingCall(false);
+      setLeadToSchedule(null);
       console.log("Event scheduled and invite sent via Google Calendar!");
     } catch (e: any) {
       console.error("Error scheduling:", e);
-      console.log(e.message || "Failed to schedule call.");
+      alert(e.message || "Failed to schedule call.");
     }
   };
 
@@ -1222,6 +1253,66 @@ export default function CRMLeadPipeline({ user }: { user: User }) {
           {toastMessage}
         </div>
       )}
+
+      <Modal isOpen={isSchedulingCall} onClose={() => setIsSchedulingCall(false)} title="Schedule Meeting">
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-zinc-400 mb-1">Date</label>
+            <input 
+              type="date" 
+              className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-zinc-700 transition-all text-white"
+              value={scheduleForm.date}
+              onChange={e => setScheduleForm(prev => ({...prev, date: e.target.value}))}
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-zinc-400 mb-1">Time</label>
+            <input 
+              type="time" 
+              className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-zinc-700 transition-all text-white"
+              value={scheduleForm.time}
+              onChange={e => setScheduleForm(prev => ({...prev, time: e.target.value}))}
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-zinc-400 mb-1">Duration (minutes)</label>
+            <input 
+              type="number" 
+              className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-zinc-700 transition-all text-white"
+              value={scheduleForm.duration}
+              onChange={e => setScheduleForm(prev => ({...prev, duration: parseInt(e.target.value)}))}
+              min="15"
+              step="15"
+            />
+          </div>
+          <div className="flex items-center gap-2 mt-4">
+            <input 
+              type="checkbox" 
+              id="googleMeetToggle"
+              checked={scheduleForm.addGoogleMeetLink}
+              onChange={e => setScheduleForm(prev => ({...prev, addGoogleMeetLink: e.target.checked}))}
+              className="w-4 h-4 rounded border-zinc-800 bg-zinc-900 text-white focus:ring-0 focus:ring-offset-0"
+            />
+            <label htmlFor="googleMeetToggle" className="text-sm font-medium text-white">Add Google Meet Link</label>
+          </div>
+          <div className="pt-4 flex justify-end gap-3">
+            <button 
+              onClick={() => setIsSchedulingCall(false)}
+              className="px-4 py-2 rounded-xl text-sm font-semibold text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors"
+            >
+              Cancel
+            </button>
+            <button 
+              onClick={submitScheduleCall}
+              className="bg-white text-black px-6 py-2 rounded-xl text-sm font-semibold hover:bg-zinc-200 transition-colors"
+            >
+              Schedule
+            </button>
+          </div>
+        </div>
+      </Modal>
+
     </div>
   );
 }
+
