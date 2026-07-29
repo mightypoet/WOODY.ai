@@ -383,7 +383,7 @@ export default function CRMLeadPipeline({ user }: { user: User }) {
       // Do not change lead state so it doesn't disappear from its current column, 
       // just update meeting_status to Scheduled.
       await dbService.update("leads", leadToSchedule.id, { 
-        meeting_status: "Scheduled",
+        meeting_status: "scheduled",
         nextStep: "Discovery Call Scheduled",
         last_touch_date: new Date().toISOString()
       });
@@ -457,7 +457,7 @@ export default function CRMLeadPipeline({ user }: { user: User }) {
     if (
       newStatus === "Proposal" && 
       lead.meeting_date && 
-      lead.meeting_status !== "Scheduled"
+      lead.meeting_status !== "scheduled"
     ) {
       try {
         const token = await getAccessToken();
@@ -588,7 +588,7 @@ export default function CRMLeadPipeline({ user }: { user: User }) {
         if (
           finalForm.status === "Proposal" && 
           finalForm.meeting_date && 
-          editingLead.meeting_status !== "Scheduled"
+          editingLead.meeting_status !== "scheduled"
         ) {
           try {
             const token = await getAccessToken();
@@ -617,7 +617,7 @@ export default function CRMLeadPipeline({ user }: { user: User }) {
             
             if (res.ok) {
               calendarDidSync = true;
-              finalForm.meeting_status = "Scheduled";
+              finalForm.meeting_status = "scheduled";
               finalForm.nextStep = "Meeting Scheduled";
               // Update optimistic UI with scheduled status
               setLeads(prevLeads => prevLeads.map(l => l.id === editingLead.id ? (finalForm as unknown as Lead) : l));
@@ -714,7 +714,7 @@ export default function CRMLeadPipeline({ user }: { user: User }) {
               className={`bg-zinc-950 border ${isStale ? 'border-red-500 bg-red-950/20' : 'border-white/10'} rounded-xl p-4 shadow-sm group hover:${isStale ? 'border-red-400' : 'border-zinc-700'} transition-colors relative cursor-grab active:cursor-grabbing`}
             >
               <div className="absolute top-3 right-3 flex flex-row items-center gap-1">
-                {lead.meeting_status === "Scheduled" && (
+                {lead.meeting_status === "scheduled" && (
                   <div title="Calendar Synced" className="p-1.5 flex items-center justify-center">
                     <CalendarCheck size={14} className="text-emerald-400" />
                   </div>
@@ -1032,10 +1032,10 @@ export default function CRMLeadPipeline({ user }: { user: User }) {
                     className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-zinc-500 transition-all mt-1 text-white"
                   >
                     <option value="">None</option>
-                    <option value="Scheduled">Scheduled</option>
-                    <option value="Completed">Completed</option>
-                    <option value="No Show">No Show</option>
-                    <option value="Rescheduled">Rescheduled</option>
+                    <option value="scheduled">Scheduled</option>
+                    <option value="completed">Completed</option>
+                    <option value="no-show">No Show</option>
+                    <option value="rescheduled">Rescheduled</option>
                   </select>
                 </div>
               </div>

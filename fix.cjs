@@ -1,0 +1,11 @@
+const fs = require('fs');
+let content = fs.readFileSync('src/components/CRMLeadPipeline.tsx', 'utf8');
+content = content.replace(/meeting_status: "Scheduled"/g, 'meeting_status: "scheduled"');
+content = content.replace(/meeting_status === "Scheduled"/g, 'meeting_status === "scheduled"');
+content = content.replace(/meeting_status !== "Scheduled"/g, 'meeting_status !== "scheduled"');
+content = content.replace(/finalForm\.meeting_status = "Scheduled"/g, 'finalForm.meeting_status = "scheduled"');
+content = content.replace(/<option value="Scheduled">Scheduled<\/option>/g, '<option value="scheduled">Scheduled</option>');
+content = content.replace(/<option value="Completed">Completed<\/option>/g, '<option value="completed">Completed</option>');
+content = content.replace(/<option value="No Show">No Show<\/option>/g, '<option value="no-show">No Show</option>');
+content = content.replace(/<option value="Rescheduled">Rescheduled<\/option>/g, '<option value="rescheduled">Rescheduled</option>');
+fs.writeFileSync('src/components/CRMLeadPipeline.tsx', content);
