@@ -14,6 +14,7 @@ import TeamManagement from './components/TeamManagement';
 import CRMLeadPipeline from './components/CRMLeadPipeline';
 import CalendarView from './components/CalendarView';
 import SettingsView from './components/SettingsView';
+import AccessDeniedView from './components/AccessDeniedView';
 
 export default function App() {
   const [user, setUser] = useState<User | null>(null);
@@ -22,48 +23,68 @@ export default function App() {
   const [dbError, setDbError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'chat' | 'dashboard' | 'calendar' | 'clients' | 'projects' | 'payments' | 'team' | 'crm' | 'settings'>('chat');
   const [supabaseConfigError, setSupabaseConfigError] = useState<boolean>(false);
+  const [accessDenied, setAccessDenied] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
+const resolveUser = async (authUser: any) => {
+    const email = authUser.email || '';
+    if (!email) return null;
+    
+    // Check if user exists by email
+    let matches = [];
+    try {
+      matches = await dbService.list('users', [{field: 'email', operator: '==', value: email}]);
+    } catch(e) {
+      console.warn("Error fetching users by email", e);
+    }
+    
+    if (email === 'rohan00as@gmail.com') {
+      if (matches.length > 0) {
+        return { ...matches[0], role: 'admin' };
+      } else {
+        const userData = {
+          id: authUser.id,
+          email: email,
+          name: authUser.displayName || 'Admin',
+          role: 'admin',
+          createdAt: new Date().toISOString()
+        };
+        try {
+          await dbService.set('users', authUser.id, userData);
+        } catch(e) {}
+        return userData;
+      }
+    } else {
+      if (matches.length > 0) {
+        return matches[0];
+      } else {
+        return null;
+      }
+    }
+  };
+
   useEffect(() => {
-    // If we're inside the popup, let Supabase process hash then close
     if (window.opener && window.name === 'oauth_popup') {
       setTimeout(() => window.close(), 1000);
     }
-
     
     testConnection();
-    
-    // Subscribe to auth state changes for Workspace integration
+
     const unsubscribe = initAuth(
       async (authUser, _fToken) => {
-        let userData;
-        try {
-          // If the get fails, it will fall through to null check
-          const rawData = await dbService.get('users', authUser.id);
-          userData = rawData as any;
-        } catch (err: any) {
-          console.warn("Supabase fetch error:", err);
+        const resolved = await resolveUser(authUser);
+        if (resolved) {
+          setUser(resolved as User);
+          setAccessDenied(false);
+        } else {
+          setUser(null);
+          setAccessDenied(true);
         }
-        
-        if (!userData) {
-          userData = {
-            id: authUser.id,
-            email: authUser.email || '',
-            name: authUser.displayName || 'Unknown User',
-            role: 'admin',
-            createdAt: new Date().toISOString()
-          };
-          try {
-            await dbService.set('users', authUser.id, userData);
-          } catch(e) {
-            console.warn("Could not save to DB, using local default.");
-          }
-        }
-        setUser(userData as User);
         setLoading(false);
       },
       () => {
         setUser(null);
+        setAccessDenied(false);
         setLoading(false);
       }
     );
@@ -89,26 +110,14 @@ export default function App() {
     try {
       const result = await googleSignIn();
       if (result) {
-        let userData;
-        try {
-          userData = await dbService.get('users', result.user.id) as any;
-        } catch (err: any) {
-          console.warn("Supabase fetch error:", err);
+        const resolved = await resolveUser(result.user);
+        if (resolved) {
+          setUser(resolved as User);
+          setAccessDenied(false);
+        } else {
+          setUser(null);
+          setAccessDenied(true);
         }
-        
-        if (!userData) {
-          userData = {
-            id: result.user.id,
-            email: result.user.email || '',
-            name: result.user.displayName || 'User',
-            role: 'admin',
-            createdAt: new Date().toISOString()
-          };
-          try {
-            await dbService.set('users', result.user.id, userData);
-          } catch(e) {}
-        }
-        setUser(userData as User);
       } else {
         // If popup closed without result
         setSupabaseConfigError(true);
@@ -133,6 +142,10 @@ export default function App() {
         <p className="text-zinc-500 text-sm animate-pulse">Initializing Woody OS...</p>
       </div>
     );
+  }
+
+  if (accessDenied) {
+    return <AccessDeniedView />;
   }
 
   if (!user) {
