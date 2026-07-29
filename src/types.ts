@@ -78,6 +78,7 @@ export interface Meeting {
 
 export type AIActionType =
   | "CREATE_CLIENT"
+  | "CREATE_LEAD"
   | "CREATE_PROJECT"
   | "CREATE_TASK"
   | "ASSIGN_TASK"
@@ -111,7 +112,7 @@ export interface Lead {
   id: string;
   name: string;
   email: string;
-  status: "New" | "Proposal" | "Deposit" | "Follow-Up Ongoing" | "Meeting Follow-Up" | "Won" | "Lost";
+  status: "New" | "Contacted" | "Meeting Scheduled" | "Proposal Sent" | "Won" | "Lost" | "Offer Made" | "Proposal" | "Deposit" | "Follow-Up Ongoing" | "Meeting Follow-Up";
   company: string;
   createdAt?: string;
   lastContactDate?: string;

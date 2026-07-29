@@ -1,20 +1,7 @@
-import { GoogleGenAI, Type } from "@google/genai";
-import { AIAction } from "../types";
+const fs = require('fs');
+let content = fs.readFileSync('src/services/aiService.ts', 'utf8');
 
-let apiKey = "";
-try {
-  // @ts-ignore
-  apiKey = import.meta.env.VITE_GEMINI_API_KEY;
-} catch (e) {
-  // Ignore
-}
-if (!apiKey && typeof process !== 'undefined' && process.env.VITE_GEMINI_API_KEY) {
-  apiKey = process.env.VITE_GEMINI_API_KEY;
-}
-
-const ai = new GoogleGenAI({ apiKey });
-
-const SYSTEM_PROMPT = `You are WOODY, an AI automation assistant for Reelywood Technologies. Your job is to help the admin manage clients, tasks, calendar events, and emails.
+const updatedPromptRules = `You are WOODY, an AI automation assistant for Reelywood Technologies. Your job is to help the admin manage clients, tasks, calendar events, and emails.
 
 ### INTENT ROUTING & ENTITY EXTRACTION RULES
 When the user asks to create, add, or record a contact/business, perform Intent Classification first before calling any functions.
@@ -77,93 +64,7 @@ Available Tools:
   "estimated_value": 0,
   "stage": "string"
 }
-3. CREATE_CALENDAR_EVENT
-{
-  "summary": "string",
-  "description": "string",
-  "startDateTime": "ISO String",
-  "endDateTime": "ISO String"
-}
+3. CREATE_CALENDAR_EVENT`;
 
-3. SEND_GMAIL
-{
-  "to": "string",
-  "subject": "string",
-  "body": "string"
-}
-
-4. SYNC_SOCIAL_MEDIA_SHEET
-{
-  "clientName": "string",
-  "sheetUrl": "string"
-}
-5. LIST_CLIENTS_AND_LEADS
-{}
-
-6. SEND_EMAIL
-{
-  "to_email": "string",
-  "subject": "string",
-  "body": "string"
-}
-
-7. CREATE_TEAM_MEMBER
-{
-  "name": "string",
-  "email": "string",
-  "role": "string"
-}
-
-If an action is requested, output the exact JSON structure required for the frontend to execute the function. Always verify you have the correct variables (like email addresses and timestamps) before executing.
-You can send emails to team members or clients when assigning tasks, completing onboarding, or when explicitly asked.
-
-Always return:
-1. JSON with an "actions" array
-2. Then a simple explanation
-
-FORMAT:
-{
-  "actions": [
-    {
-      "type": "ACTION_TYPE",
-      "payload": { ... }
-    }
-  ]
-}
-
-Then below JSON, write:
-- What actions were performed
-- Any suggestions or warnings
-
-Current Date: ${new Date().toISOString()}
-`;
-
-export async function getAIResponse(messages: { role: string, content: string }[]): Promise<string> {
-  const contents = messages.map(msg => ({
-    role: msg.role === "assistant" ? "model" : "user",
-    parts: [{ text: msg.content }]
-  }));
-
-  const response = await ai.models.generateContent({
-    model: "gemini-3-flash-preview",
-    contents: contents,
-    config: {
-      systemInstruction: SYSTEM_PROMPT,
-    }
-  });
-
-  return response.text;
-}
-
-export function extractActions(text: string): AIAction[] {
-  try {
-    const jsonMatch = text.match(/\{[\s\S]*"actions"[\s\S]*\}/);
-    if (jsonMatch) {
-      const data = JSON.parse(jsonMatch[0]);
-      return data.actions || [];
-    }
-  } catch (e) {
-    console.error("Failed to extract actions:", e);
-  }
-  return [];
-}
+content = content.replace(/You are WOODY[\s\S]*?2\. CREATE_CALENDAR_EVENT/, updatedPromptRules);
+fs.writeFileSync('src/services/aiService.ts', content);

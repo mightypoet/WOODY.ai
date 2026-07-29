@@ -169,6 +169,21 @@ export default function ChatInterface({ user }: { user: User }) {
             );
             break;
 
+          case "CREATE_LEAD":
+            await dbService.create("leads", {
+              name: action.payload.name || action.payload.client_name || "",
+              email: action.payload.email || "",
+              company: action.payload.company || action.payload.brand || "",
+              contact_number: action.payload.phone || "",
+              total_deal_value: action.payload.estimated_value || 0,
+              status: action.payload.stage || "New",
+              createdAt: now,
+            });
+            results.push(
+              `Created lead: ${action.payload.name || action.payload.client_name}`,
+            );
+            break;
+
           case "CREATE_PROJECT": {
             const clients = (await dbService.list("clients")) as any[];
             const client = clients?.find(
