@@ -383,7 +383,6 @@ export default function CRMLeadPipeline({ user }: { user: User }) {
       // Do not change lead state so it doesn't disappear from its current column, 
       // just update meeting_status to Scheduled.
       await dbService.update("leads", leadToSchedule.id, { 
-        meeting_status: "scheduled",
         nextStep: "Discovery Call Scheduled",
         last_touch_date: new Date().toISOString()
       });
@@ -485,7 +484,7 @@ export default function CRMLeadPipeline({ user }: { user: User }) {
           
           if (res.ok) {
             calendarDidSync = true;
-            updatedLead.meeting_status = "Scheduled";
+            // updatedLead.meeting_status = "Scheduled"; // REMOVED TO FIX CONSTRAINT
             updatedLead.nextStep = "Meeting Scheduled";
             // Re-update the UI with the calendar info
             setLeads(prevLeads => prevLeads.map(l => l.id === lead.id ? updatedLead : l));
@@ -508,7 +507,7 @@ export default function CRMLeadPipeline({ user }: { user: User }) {
         last_touch_date: updatedLead.last_touch_date,
       };
       if (calendarDidSync) {
-        partialUpdate.meeting_status = updatedLead.meeting_status;
+        // partialUpdate.meeting_status = updatedLead.meeting_status; // REMOVED TO FIX CONSTRAINT
         partialUpdate.nextStep = updatedLead.nextStep;
       }
       await dbService.update("leads", lead.id, partialUpdate);
@@ -549,7 +548,6 @@ export default function CRMLeadPipeline({ user }: { user: User }) {
           closer_name: editForm.closer_name || "",
           first_contact_date: editForm.first_contact_date || null,
           date_of_meeting: editForm.date_of_meeting || null,
-          meeting_status: editForm.meeting_status || null,
           call_outcome: editForm.call_outcome || null,
           loss_reason: editForm.loss_reason || null,
           total_deal_value: Number(editForm.total_deal_value) || 0,
@@ -571,7 +569,6 @@ export default function CRMLeadPipeline({ user }: { user: User }) {
         if (finalForm.meeting_date === "") finalForm.meeting_date = null as any;
         if (finalForm.first_contact_date === "") finalForm.first_contact_date = null as any;
         if (finalForm.date_of_meeting === "") finalForm.date_of_meeting = null as any;
-        if (finalForm.meeting_status === "") finalForm.meeting_status = null as any;
         if (finalForm.call_outcome === "") finalForm.call_outcome = null as any;
         if (finalForm.loss_reason === "") finalForm.loss_reason = null as any;
         
@@ -617,7 +614,7 @@ export default function CRMLeadPipeline({ user }: { user: User }) {
             
             if (res.ok) {
               calendarDidSync = true;
-              finalForm.meeting_status = "scheduled";
+              // finalForm.meeting_status = "scheduled"; // REMOVED TO FIX CONSTRAINT
               finalForm.nextStep = "Meeting Scheduled";
               // Update optimistic UI with scheduled status
               setLeads(prevLeads => prevLeads.map(l => l.id === editingLead.id ? (finalForm as unknown as Lead) : l));
