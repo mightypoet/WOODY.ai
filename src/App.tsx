@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { dbService, testConnection } from './services/dbService';
 import { googleSignIn, initAuth, logout as googleLogout } from './services/googleAuth';
 import { User, UserRole } from './types';
-import { Layout, MessageSquare, LayoutDashboard, Users, Briefcase, CreditCard, LogOut, Loader2, Send, Building2, AlertCircle, CheckCircle2, Calendar, Menu, X } from 'lucide-react';
+import { Layout, MessageSquare, LayoutDashboard, Users, Briefcase, CreditCard, LogOut, Loader2, Send, Building2, AlertCircle, CheckCircle2, Calendar, Menu, X, Settings } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import ErrorBoundary from './components/ErrorBoundary';
 import ChatInterface from './components/ChatInterface';
@@ -13,13 +13,14 @@ import PaymentTracker from './components/PaymentTracker';
 import TeamManagement from './components/TeamManagement';
 import CRMLeadPipeline from './components/CRMLeadPipeline';
 import CalendarView from './components/CalendarView';
+import SettingsView from './components/SettingsView';
 
 export default function App() {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [authError, setAuthError] = useState<string | null>(null);
   const [dbError, setDbError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'chat' | 'dashboard' | 'calendar' | 'clients' | 'projects' | 'payments' | 'team' | 'crm'>('chat');
+  const [activeTab, setActiveTab] = useState<'chat' | 'dashboard' | 'calendar' | 'clients' | 'projects' | 'payments' | 'team' | 'crm' | 'settings'>('chat');
   const [supabaseConfigError, setSupabaseConfigError] = useState<boolean>(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
@@ -191,6 +192,7 @@ export default function App() {
     { id: 'payments', label: 'Payments', icon: CreditCard },
     { id: 'team', label: 'Team', icon: Users },
     { id: 'crm', label: 'CRM / Leads', icon: CheckCircle2 },
+    { id: 'settings', label: 'Settings', icon: Settings },
   ];
 
   return (
@@ -315,6 +317,7 @@ export default function App() {
               {activeTab === 'payments' && <PaymentTracker user={user} />}
               {activeTab === 'team' && <TeamManagement user={user} />}
               {activeTab === 'crm' && <CRMLeadPipeline user={user} />}
+              {activeTab === 'settings' && <SettingsView />}
             </motion.div>
           </AnimatePresence>
           </div>

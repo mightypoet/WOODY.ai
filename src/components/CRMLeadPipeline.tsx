@@ -1,3 +1,4 @@
+import { supabase } from "../utils/supabase";
 import React,
  { useState, useEffect } from "react";
 import Papa from 'papaparse';
@@ -290,32 +291,51 @@ export default function CRMLeadPipeline({ user }: { user: User }) {
     reader.readAsText(file);
   };
 
-  const handleSendIntroEmail = async (lead: Lead) => {
-    const confirm = window.confirm(`Send an automated introduction email to ${lead.name} (${lead.email})?`);
+const handleSendIntroEmail = async (lead: Lead) => {
+    const confirm = window.confirm(`Send an automated email to ${lead.name} (${lead.email})?`);
     if (!confirm) return;
 
     try {
       showToast(`Sending email to ${lead.email}...`);
+      
+      // Fetch template for current stage
+      const { data, error } = await supabase.from('email_templates').select('*').eq('stage', lead.status).single();
+      
+      let subject = `Connecting regarding ${lead.company || lead.name}`;
+      let body = `I would love to connect to discuss how we can help ${lead.company || 'your business'} reach its goals.<br><br>Let's schedule a brief call next week.`;
+      
+      if (data && !error) {
+        const replaceVars = (text: string) => {
+          return text
+            .replace(/\{\{lead_name\}\}/g, lead.name)
+            .replace(/\{\{company\}\}/g, lead.company || 'your business')
+            .replace(/\{\{sender_name\}\}/g, user?.name || "Your Account Executive");
+        };
+        subject = replaceVars(data.subject || subject);
+        body = replaceVars(data.body || body);
+      }
+
       await gmailService.sendEmail(
         lead.email,
-        `Connecting regarding ${lead.company || lead.name}`,
+        subject,
         buildHtmlEmail({
           recipientName: lead.name,
-          headline: `Connecting regarding ${lead.company || lead.name}`,
-          messageBody: `I would love to connect to discuss how we can help ${lead.company || 'your business'} reach its goals.<br><br>Let's schedule a brief call next week.`,
+          headline: subject,
+          messageBody: body,
           ctaText: "Schedule Call",
           ctaUrl: "https://calendly.com",
-          senderName: "Your Account Executive"
+          senderName: user?.name || "Your Account Executive"
         })
       );
 
       // Update lead status
       await dbService.update("leads", lead.id, { 
-        status: "Proposal",
+        status: lead.status === "New" ? "Contacted" : lead.status,
         lastContactDate: new Date().toISOString(),
         last_touch_date: new Date().toISOString(),
         nextStep: "Follow-Up Ongoing"
       });
+
       fetchSheets();
       fetchLeads();
       showToast("Email sent successfully!");
@@ -452,9 +472,9 @@ export default function CRMLeadPipeline({ user }: { user: User }) {
     // Optimistically update the UI state first
     setLeads(prevLeads => prevLeads.map(l => l.id === lead.id ? updatedLead : l));
 
-    // Auto-schedule if status is Proposal and meeting_date is present and not yet synced
+    // Auto-schedule if status is Meeting Scheduled and meeting_date is present and not yet synced
     if (
-      newStatus === "Proposal" && 
+      newStatus === "Meeting Scheduled" && 
       lead.meeting_date && 
       lead.meeting_status !== "scheduled"
     ) {
@@ -581,9 +601,9 @@ export default function CRMLeadPipeline({ user }: { user: User }) {
         // Optimistically update the UI for edit
         setLeads(prevLeads => prevLeads.map(l => l.id === editingLead.id ? (finalForm as unknown as Lead) : l));
 
-        // Auto-schedule if status is Proposal and meeting_date is present and not yet synced
+        // Auto-schedule if status is Meeting Scheduled and meeting_date is present and not yet synced
         if (
-          finalForm.status === "Proposal" && 
+          finalForm.status === "Meeting Scheduled" && 
           finalForm.meeting_date && 
           editingLead.meeting_status !== "scheduled"
         ) {
@@ -671,7 +691,7 @@ export default function CRMLeadPipeline({ user }: { user: User }) {
     }
   };
 
-  const renderPipelineColumn = (status: "New" | "Proposal" | "Deposit" | "Follow-Up Ongoing" | "Meeting Follow-Up" | "Won" | "Lost") => {
+  const renderPipelineColumn = (status: "New" | "Contacted" | "Meeting Scheduled" | "Offer Made" | "Won" | "Lost") => {
     const columnLeads = activeLeads.filter(l => l.status === status);
     
     return (
@@ -737,19 +757,17 @@ export default function CRMLeadPipeline({ user }: { user: User }) {
               )}
 
               <div className="flex gap-2 mt-2 pt-2 border-t border-zinc-800/80">
-                {status === "New" && (
-                  <button onClick={() => handleSendIntroEmail(lead)} className="flex-1 bg-zinc-800 hover:bg-zinc-700 text-white rounded text-xs py-1.5 flex items-center justify-center gap-1.5 transition-colors" title="Send Intro Email via Gmail">
-                    <Mail size={12} /> Contact
+                  <button onClick={() => handleSendIntroEmail(lead)} className="flex-1 bg-zinc-800 hover:bg-zinc-700 text-white rounded text-xs py-1.5 flex items-center justify-center gap-1.5 transition-colors" title="Send Email via Gmail">
+                    <Mail size={12} /> Email
                   </button>
-                )}
                 
-                {status === "Proposal" && (
+                {status === "Contacted" && (
                   <button onClick={() => handleScheduleCall(lead)} className="flex-1 bg-zinc-800 hover:bg-zinc-700 text-white rounded text-xs py-1.5 flex items-center justify-center gap-1.5 transition-colors" title="Schedule Discovery Call via Calendar">
                     <Calendar size={12} /> Schedule
                   </button>
                 )}
 
-                {status === "Meeting Follow-Up" && (
+                {status === "Offer Made" && (
                   <button onClick={() => convertToClient(lead)} className="flex-1 bg-indigo-600 hover:bg-indigo-500 text-white rounded text-xs py-1.5 flex items-center justify-center gap-1.5 transition-colors shadow-[0_0_10px_rgba(79,70,229,0.2)]">
                     <CheckCircle2 size={12} /> Client
                   </button>
@@ -887,10 +905,10 @@ export default function CRMLeadPipeline({ user }: { user: User }) {
       ) : viewMode === "kanban" ? (
         <div className="flex-1 overflow-y-auto md:overflow-x-auto custom-scrollbar min-h-0 bg-zinc-950/20 backdrop-blur-sm rounded-2xl border border-white/5 p-4 flex flex-col md:flex-row gap-4">
           {renderPipelineColumn("New")}
-          {renderPipelineColumn("Proposal")}
-          {renderPipelineColumn("Deposit")}
-          {renderPipelineColumn("Follow-Up Ongoing")}
-          {renderPipelineColumn("Meeting Follow-Up")}
+          {renderPipelineColumn("Contacted")}
+          {renderPipelineColumn("Meeting Scheduled")}
+          {renderPipelineColumn("Offer Made")}
+          
           {renderPipelineColumn("Won")}
           {renderPipelineColumn("Lost")}
         </div>
@@ -956,10 +974,10 @@ export default function CRMLeadPipeline({ user }: { user: User }) {
                   className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-zinc-500 transition-all mt-1 text-white"
                 >
                   <option value="New">New</option>
-                  <option value="Proposal">Proposal</option>
-                  <option value="Deposit">Deposit</option>
-                  <option value="Follow-Up Ongoing">Follow-Up Ongoing</option>
-                  <option value="Meeting Follow-Up">Meeting Follow-Up</option>
+                  <option value="Contacted">Contacted</option>
+                  <option value="Meeting Scheduled">Meeting Scheduled</option>
+                  <option value="Offer Made">Offer Made</option>
+                  
                   <option value="Won">Won</option>
                   <option value="Lost">Lost</option>
                 </select>
@@ -1116,7 +1134,7 @@ export default function CRMLeadPipeline({ user }: { user: User }) {
                   value={editForm.meeting_date || ""}
                   onChange={e => setEditForm({ ...editForm, meeting_date: e.target.value })}
                   className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-zinc-500 transition-all mt-1 text-white"
-                  title="If set and status is Proposal, automatically schedule in Google Calendar"
+                  title="If set and status is Meeting Scheduled, automatically schedule in Google Calendar"
                 />
               </div>
               <div>
